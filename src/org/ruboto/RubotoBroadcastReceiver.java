@@ -1,18 +1,13 @@
 package org.ruboto;
 
-import org.jruby.Ruby;
-import org.jruby.javasupport.util.RuntimeHelpers;
-import org.jruby.runtime.builtin.IRubyObject;
-import org.jruby.javasupport.JavaUtil;
-import org.jruby.exceptions.RaiseException;
-import org.ruboto.Script;
 import java.io.IOException;
-import android.app.ProgressDialog;
+
+import org.jruby.Ruby;
+import org.jruby.runtime.builtin.IRubyObject;
 
 public abstract class RubotoBroadcastReceiver extends android.content.BroadcastReceiver {
   private Ruby __ruby__;
   private String scriptName;
-  private String remoteVariable = "";
   public Object[] args;
 
 
@@ -34,7 +29,6 @@ public abstract class RubotoBroadcastReceiver extends android.content.BroadcastR
   }
 	
   public RubotoBroadcastReceiver setRemoteVariable(String var) {
-    remoteVariable = ((var == null) ? "" : (var + "."));
     return this;
   }
 

@@ -9,6 +9,7 @@
         </activity>
         <activity android:name='org.ruboto.RubotoActivity'/>
         <activity android:name='org.ruboto.RubotoDialog' android:theme='@android:style/Theme.Dialog'/>
+        <activity android:name='GroupList'/>
     </application>
     <uses-sdk android:minSdkVersion='7' android:targetSdkVersion='7'/>
 </manifest>

@@ -20,16 +20,6 @@ require 'java'
 
 $package_name = "no.jujutsu.android.oppmote"
 
-class Object
-  def self.android
-    Java::android
-  end
-
-  def android
-    self.class.android
-  end
-end
-
 java_import "android.R"
 
 module Ruboto

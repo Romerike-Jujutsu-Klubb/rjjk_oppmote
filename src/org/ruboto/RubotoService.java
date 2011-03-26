@@ -1,18 +1,16 @@
 package org.ruboto;
 
+import java.io.IOException;
+
 import org.jruby.Ruby;
+import org.jruby.exceptions.RaiseException;
+import org.jruby.javasupport.JavaUtil;
 import org.jruby.javasupport.util.RuntimeHelpers;
 import org.jruby.runtime.builtin.IRubyObject;
-import org.jruby.javasupport.JavaUtil;
-import org.jruby.exceptions.RaiseException;
-import org.ruboto.Script;
-import java.io.IOException;
-import android.app.ProgressDialog;
 
 public abstract class RubotoService extends android.app.Service {
   private Ruby __ruby__;
   private String scriptName;
-  private String remoteVariable = "";
   public Object[] args;
 
   public static final int CB_BIND = 0;
@@ -40,7 +38,6 @@ public abstract class RubotoService extends android.app.Service {
   }
 	
   public RubotoService setRemoteVariable(String var) {
-    remoteVariable = ((var == null) ? "" : (var + "."));
     return this;
   }
 
