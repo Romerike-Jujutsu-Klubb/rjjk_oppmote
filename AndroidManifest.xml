@@ -1,15 +1,26 @@
-<?xml version='1.0' encoding='UTF-8'?> 
-<manifest xmlns:android='http://schemas.android.com/apk/res/android' package='no.jujutsu.android.oppmote' android:versionCode='1' android:versionName='1.0'>
-    <application android:label='@string/app_name' android:icon='@drawable/icon'>
-        <activity android:name='OppmoteActivity' android:label='@string/app_name'>
-            <intent-filter>
-                <action android:name='android.intent.action.MAIN'/>
-                <category android:name='android.intent.category.LAUNCHER'/>
-            </intent-filter>
-        </activity>
-        <activity android:name='org.ruboto.RubotoActivity'/>
-        <activity android:name='org.ruboto.RubotoDialog' android:theme='@android:style/Theme.Dialog'/>
-        <activity android:name='GroupList'/>
-    </application>
-    <uses-sdk android:minSdkVersion='7' android:targetSdkVersion='7'/>
+<?xml version='1.0' encoding='UTF-8'?>
+<manifest xmlns:android='http://schemas.android.com/apk/res/android'
+	package='no.jujutsu.android.oppmote' android:versionCode='1'
+	android:versionName='1.0'>
+	<application android:label='@string/app_name' android:icon='@drawable/icon'>
+		<activity android:name='GroupList' android:label='@string/app_name'>
+			<intent-filter>
+				<action android:name='android.intent.action.MAIN' />
+				<category android:name='android.intent.category.LAUNCHER' />
+			</intent-filter>
+		</activity>
+		<activity android:name='org.ruboto.RubotoActivity' />
+		<activity android:name='org.ruboto.RubotoDialog'
+			android:theme='@android:style/Theme.Dialog' />
+		<activity android:name='OppmoteActivity' />
+		<activity android:name='MemberList' />
+		<service android:name="WifiDetectorService" />
+		<!-- <service android:name="WifiDetectorService" android:process=":no.jujutsu.android.oppmote.sync" 
+			/> -->
+	</application>
+	<uses-sdk android:minSdkVersion='8' android:targetSdkVersion='8' />
+	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+	<uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+	<uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+	<uses-permission android:name="android.permission.INTERNET" />
 </manifest>

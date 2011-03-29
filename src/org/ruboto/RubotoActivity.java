@@ -6,7 +6,6 @@ import org.jruby.runtime.builtin.IRubyObject;
 import org.jruby.javasupport.JavaUtil;
 import org.jruby.exceptions.RaiseException;
 import org.ruboto.Script;
-import java.io.IOException;
 import android.app.ProgressDialog;
 import android.os.Handler;
 
@@ -72,11 +71,13 @@ public class RubotoActivity extends android.app.Activity {
   private IRubyObject[] callbackProcs = new IRubyObject[51];
 
   private Ruby getRuby() {
-    if (__ruby__ == null) __ruby__ = Script.getRuby();
-
     if (__ruby__ == null) {
-      Script.setUpJRuby(null);
-      __ruby__ = Script.getRuby();
+    	__ruby__ = Script.getRuby();
+
+        if (__ruby__ == null) {
+            Script.setUpJRuby(this);
+            __ruby__ = Script.getRuby();
+        }
     }
 
     return __ruby__;
@@ -129,7 +130,6 @@ public class RubotoActivity extends android.app.Activity {
   
   private final Thread loadingThread = new Thread() {
       public void run(){
-        Script.setUpJRuby(null);
         backgroundCreate();
         loadingHandler.post(loadingComplete);
       }
@@ -145,7 +145,6 @@ public class RubotoActivity extends android.app.Activity {
   };
 
   private void backgroundCreate() {
-    Script.copyScriptsIfNeeded(getFilesDir().getAbsolutePath() + "/scripts", getAssets());
     getRuby();
     Script.defineGlobalVariable("$activity", this);
     Script.defineGlobalVariable("$bundle", args[0]);
@@ -167,7 +166,7 @@ public class RubotoActivity extends android.app.Activity {
     } else {
       try {
         new Script(scriptName).execute();
-      } catch(IOException e){
+      } catch(Throwable e){
         e.printStackTrace();
         ProgressDialog.show(this, "Script failed", "Something bad happened", true, true);
       }

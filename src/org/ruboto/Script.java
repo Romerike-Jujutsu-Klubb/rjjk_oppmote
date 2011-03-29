@@ -21,6 +21,7 @@ import org.jruby.runtime.ThreadContext;
 import org.jruby.runtime.builtin.IRubyObject;
 import org.jruby.runtime.scope.ManyVarsDynamicScope;
 
+import android.content.Context;
 import android.content.res.AssetManager;
 import android.util.Log;
 
@@ -52,7 +53,11 @@ public class Script {
         return initialized;
     }
 
-    public static synchronized Ruby setUpJRuby(PrintStream out) {
+    public static synchronized Ruby setUpJRuby(Context appContext) {
+        return setUpJRuby(appContext, System.out);
+    }
+
+    public static synchronized Ruby setUpJRuby(Context appContext, PrintStream out) {
         if (ruby == null) {
         	System.setProperty("jruby.interfaces.useProxy", "true");
             RubyInstanceConfig config = new RubyInstanceConfig();
@@ -73,6 +78,7 @@ public class Script {
             DynamicScope currentScope = context.getCurrentScope();
             scope = new ManyVarsDynamicScope(new EvalStaticScope(currentScope.getStaticScope()), currentScope);
             
+            copyScriptsIfNeeded(appContext);
             initialized = true;
         }
 
@@ -84,7 +90,7 @@ public class Script {
         try {
             return exec(code).inspect().asJavaString();
         } catch (RaiseException re) {
-            re.printStackTrace(ruby.getErrorStream());
+            re.printStackTrace();
             return null;
         }
     }
@@ -169,7 +175,9 @@ public class Script {
         }
     }
 
-    public static void copyScriptsIfNeeded(String to, AssetManager assets) {
+    private static void copyScriptsIfNeeded(Context context) {
+        String to = context.getFilesDir().getAbsolutePath() + "/scripts";
+        AssetManager assets = context.getAssets();
         /* the if makes sure we only do this the first time */
         if (configDir(to))
             copyScripts("scripts", scriptsDirFile, assets);
@@ -210,6 +218,9 @@ public class Script {
     }
 
     public String getContents() throws IOException {
+    	System.out.println(new File(".").getAbsolutePath());
+    	System.out.println(getDir());
+    	System.out.println(getFile());
         BufferedReader buffer = new BufferedReader(new FileReader(getFile()));
         StringBuilder source = new StringBuilder();
         while (true) {
@@ -229,5 +240,7 @@ public class Script {
 
     public String execute() throws IOException {
         return Script.execute(getContents());
+//        return ruby.executeScript(getContents(), name == null ? "<ruby script>" : name).inspect().asJavaString();
+
     }
 }

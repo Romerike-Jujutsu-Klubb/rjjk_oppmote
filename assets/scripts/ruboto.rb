@@ -18,7 +18,8 @@ end
 
 require 'java'
 
-$package_name = "no.jujutsu.android.oppmote"
+$package_name = ($activity || $service).package_name
+$package = eval("Java::#$package_name")
 
 java_import "android.R"
 
@@ -89,6 +90,8 @@ end
 def ruboto_allow_handlers(klass)
   klass.class_eval do
     def method_missing(name, *args, &block)
+      java.lang.System.out.println("method_missing: #{name}")
+      java.lang.System.out.println("constants: #{self.class.constants.sort}")
       if name.to_s =~ /^handle_(.*)/ and (const = self.class.const_get("CB_#{$1.upcase}"))
         setCallbackProc(const, block)
         self
@@ -489,21 +492,21 @@ end
 # Final set up depending on globals
 #
 
-if $activity
+#if $activity
   java_import "org.ruboto.RubotoActivity"
   setup_activity
   ruboto_configure_activity(RubotoActivity)
   ruboto_setup(RubotoActivity)
   setup_view
-end
+#end
 
-if $service
+#if $service
   java_import "org.ruboto.RubotoService"
   ruboto_setup(RubotoService)
-end
+#end
 
-if $broadcast_receiver
+#if $broadcast_receiver
   java_import "org.ruboto.RubotoBroadcastReceiver"
   ruboto_setup(RubotoBroadcastReceiver, "receive")
-end
+#end
 

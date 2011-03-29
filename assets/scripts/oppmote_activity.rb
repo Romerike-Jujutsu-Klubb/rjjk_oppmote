@@ -1,9 +1,16 @@
+java.lang.System.out.println 'require ruboto'
+
 require 'ruboto.rb'
+
+java.lang.System.out.println 'improts'
 
 ruboto_import_widgets :LinearLayout, :ListView
 java_import "android.content.Intent"
 
+java.lang.System.out.println 'before handle create'
+
 $activity.handle_create do |bundle|
+  java.lang.System.out.println 'inside handle create'
   setTitle 'RJJK Oppmøte'
 
   setup_content do
@@ -23,5 +30,5 @@ $activity.handle_create do |bundle|
     startActivity(i)
   end
 
-
+  startService(Intent.new($activity.application_context, Java::no.jujutsu.android.oppmote.WifiDetectorService.java_class))
 end

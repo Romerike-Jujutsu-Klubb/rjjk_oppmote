@@ -26,7 +26,7 @@ public abstract class RubotoService extends android.app.Service {
     if (__ruby__ == null) __ruby__ = Script.getRuby();
 
     if (__ruby__ == null) {
-      Script.setUpJRuby(null);
+      Script.setUpJRuby(this);
       __ruby__ = Script.getRuby();
     }
 

@@ -14,11 +14,8 @@ public abstract class RubotoBroadcastReceiver extends android.content.BroadcastR
   private IRubyObject[] callbackProcs = new IRubyObject[0];
 
   private Ruby getRuby() {
-    if (__ruby__ == null) __ruby__ = Script.getRuby();
-
     if (__ruby__ == null) {
-      Script.setUpJRuby(null);
-      __ruby__ = Script.getRuby();
+    	__ruby__ = Script.getRuby();
     }
 
     return __ruby__;
