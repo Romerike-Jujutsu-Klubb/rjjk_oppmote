@@ -2,6 +2,7 @@ require 'yaml'
 require 'database'
 require 'thread_ext'
 require 'group'
+require 'member'
 
 HELLO_ID = 1;
 SERVER = 'jujutsu.no'
@@ -20,6 +21,74 @@ import org.apache.http.client.protocol.ClientContext
 import org.apache.http.message.BasicNameValuePair
 import org.apache.http.protocol.HttpContext
 import org.apache.http.protocol.BasicHttpContext
+
+def get_login_form(client, http_context)
+  method = HttpGet.new("http://#{SERVER}/user/login")
+  EntityUtils.toString(client.execute(method, http_context).entity)
+end
+
+def submit_login_form(client, http_context)
+  method = HttpPost.new("http://#{SERVER}/user/login")
+  method.setHeader("Content-Type", "application/x-www-form-urlencoded");
+  list = [BasicNameValuePair.new('user[login]', 'uwe'), BasicNameValuePair.new('user[password]', 'CokaBrus')]
+  entity = UrlEncodedFormEntity.new(list)
+  method.setEntity(entity)
+  EntityUtils.toString(client.execute(method, http_context).entity)
+end
+
+def load_groups(client, http_context)
+  method = HttpGet.new("http://#{SERVER}/groups/yaml")
+  response = EntityUtils.toString(client.execute(method, http_context).entity)
+  Log.v "RJJK Oppmøte", "Got response: #{response}"
+  groups = YAML.load(response)
+  groups.each do |group|
+    Log.v "RJJK Oppmøte", "Group: #{group.inspect}"
+    Thread.with_large_stack do
+      db = $db_helper.getWritableDatabase
+      c = db.rawQuery("SELECT id FROM groups WHERE id = #{group['id']}", nil)
+      count = c.getCount
+      c.close
+      if count == 0
+        db.execSQL "INSERT INTO groups VALUES (#{group['id']}, '#{group['name']}')"
+      end
+      
+      group['members'].each do |mid|
+        c = db.rawQuery("SELECT group_id FROM groups_members WHERE group_id = #{group['id']} AND member_id = #{mid}", nil)
+        count = c.getCount
+        c.close
+        if count == 0
+          db.execSQL "INSERT INTO groups_members VALUES (#{group['id']}, '#{mid}')"
+        end
+      end
+      
+      db.close
+    end.join
+  end
+end
+
+def load_members(client, http_context)
+  Log.v "RJJK Oppmøte", "Get members"
+  method = HttpGet.new("http://#{SERVER}/members/yaml")
+  response = EntityUtils.toString(client.execute(method, http_context).entity)
+  Log.v "RJJK Oppmøte", "Got members response: #{response}"
+  members = YAML.load(response)
+  members.each do |m|
+    Log.v "RJJK Oppmøte", "Member: #{m.inspect}"
+    Thread.with_large_stack do
+      db = $db_helper.getWritableDatabase
+      c = db.rawQuery("SELECT id FROM members WHERE id = #{m['id']}", nil)
+      if c.getCount > 0
+        db.execSQL "DELETE FROM members WHERE id = #{m['id']}"
+      end
+      c.close
+      db.execSQL "INSERT INTO members(id, first_name, last_name, male, address, payment_problem, instructor) VALUES (
+        #{m['id']}, '#{m['first_name']}', '#{m['last_name']}', #{m['male'] == 't' ? 1 : 0},
+        '#{m['address']}', #{m['payment_problem'] == 't' ? 1 : 0}, #{m['instructor'] == 't' ? 1 : 0}
+      )"
+      db.close
+    end.join
+  end
+end
 
 Log.v "WifiDetector", "Woohoo!  Network event!"
 Log.v "WifiDetector", $broadcast_intent.getExtras.to_s
@@ -42,55 +111,18 @@ if true || ssid
 
   Thread.start do
     begin
-      db = $db_helper.getWritableDatabase
       client = AndroidHttpClient.newInstance('Android')
       http_context = BasicHttpContext.new
       http_context.setAttribute(ClientContext.COOKIE_STORE, org.apache.http.impl.client.BasicCookieStore.new);
-      method = HttpGet.new("http://#{SERVER}/user/login")
-      EntityUtils.toString(client.execute(method, http_context).entity)
 
-      method = HttpPost.new("http://#{SERVER}/user/login")
-      method.setHeader("Content-Type", "application/x-www-form-urlencoded");
-      list = [BasicNameValuePair.new('user[login]', 'uwe'), BasicNameValuePair.new('user[password]', 'CokaBrus')]
-      entity = UrlEncodedFormEntity.new(list)
-      method.setEntity(entity)
-      EntityUtils.toString(client.execute(method, http_context).entity)
-
-      method = HttpGet.new("http://#{SERVER}/groups/yaml")
-      response = EntityUtils.toString(client.execute(method, http_context).entity)
-      Log.v "RJJK Oppmøte", "Got response: #{response}"
-      groups = YAML.load(response)
-      groups.each do |group|
-        Log.v "RJJK Oppmøte", "Group: #{group.inspect}"
-        Thread.with_large_stack do
-          c = db.rawQuery("SELECT id FROM groups WHERE id = #{group.attributes['id']}", nil)
-          if c.getCount == 0
-            db.execSQL "INSERT INTO groups VALUES (#{group.attributes['id']}, '#{group.attributes['name']}')"
-          end
-          c.close
-        end.join
-      end
-
-      method = HttpGet.new("http://#{SERVER}/members/yaml")
-      response = EntityUtils.toString(client.execute(method, http_context).entity)
-      Log.v "RJJK Oppmøte", "Got members response: #{response}"
-      members = YAML.load(response)
-      members.each do |member|
-        Log.v "RJJK Oppmøte", "Member: #{member.inspect}"
-        Thread.with_large_stack do
-          c = db.rawQuery("SELECT id FROM members WHERE id = #{member['id']}", nil)
-          if c.getCount > 0
-            db.execSQL "DELETE FROM members WHERE id = #{member['id']}"
-          end
-          db.execSQL "INSERT INTO members(id, first_name) VALUES (#{member['id']}, '#{member['first_name']}')"
-          c.close
-        end.join
-      end
-
+      get_login_form(client, http_context)
+      submit_login_form(client, http_context)
+      load_members(client, http_context)
+      load_groups(client, http_context)
     rescue
       Log.e "RJJK Oppmøte", "Exception getting data from server: #{$!.message}\n#{$!.backtrace.join("\n")}"
     ensure
-      db.close if db
+      client.close if client
     end
   end
 

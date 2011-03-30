@@ -1,4 +1,4 @@
 require 'record'
 
-class Group < Record
+class Member < Record
 end

@@ -35,7 +35,6 @@ $activity.handle_create do |bundle|
     end
 
     handle_item_click do |parent, view, position, id|
-      toast "Item Click: #{view.text}"
       group_name = view.text
       i = Intent.new
       i.setClassName($package_name, $package_name + '.MemberList')

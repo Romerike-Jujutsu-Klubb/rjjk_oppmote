@@ -32,11 +32,15 @@ $activity.handle_create do |bundle|
               @groups_members = []
               c = db.rawQuery('SELECT group_id, member_id FROM groups_members', nil)
               while c.moveToNext
-                member_id = c.getInt(0)
+                member_id = c.getInt(1)
+                java.lang.System.out.println "member_id: #{member_id.inspect}"
                 member = @members.find{|m| m['id'] == member_id}
-                group_id = c.getInt(1)
+                java.lang.System.out.println "member: #{member.inspect}"
+                group_id = c.getInt(0)
+                java.lang.System.out.println "group_id: #{group_id.inspect}"
+                java.lang.System.out.println "group ids: #{@groups.map{|g| g['id']}.inspect}"
                 group = @groups.find{|g| g['id'] == group_id}
-                group.members << member
+                group.members << member if group && member
               end
             end.join
             db.close
