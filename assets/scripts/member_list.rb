@@ -24,9 +24,9 @@ $activity.handle_create do |bundle|
               end
               
               @members = []
-              c = db.rawQuery('SELECT id, first_name FROM members', nil)
+              c = db.rawQuery('SELECT id, first_name, last_name FROM members', nil)
               while c.moveToNext
-                @members << Member.new('id' => c.getInt(0), 'first_name' => c.getString(1))
+                @members << Member.new('id' => c.getInt(0), 'first_name' => c.getString(1), 'last_name' => c.getString(2))
               end
 
               @groups_members = []
@@ -45,7 +45,7 @@ $activity.handle_create do |bundle|
             end.join
             db.close
             java.lang.System.out.println 'list view...'
-            @list_view = list_view :list => @groups.find{|g| g['name'] == group_name}.members.map{|m| m['first_name']}
+            @list_view = list_view :list => @groups.find{|g| g['name'] == group_name}.members.map{|m| "#{m['first_name']} #{m['first_name']}"}.sort
           rescue
             toast "Error in linearlayout: #$!"
             java.lang.System.out.println "Exception during layout: #$!\n#{$!.backtrace.join("\n")}"
