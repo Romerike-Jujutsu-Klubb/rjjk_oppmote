@@ -20,9 +20,9 @@ $activity.handle_create do |bundle|
               while c.moveToNext
                 @groups << c.getString(0)
               end
+              c.close
             end.join
             db.close
-            java.lang.System.out.println 'list view...'
             @list_view = list_view :list => @groups
           rescue
             toast "Error in linearlayout: #$!"
@@ -40,6 +40,33 @@ $activity.handle_create do |bundle|
       i.setClassName($package_name, $package_name + '.MemberList')
       i.putExtra("group_name", group_name)
       startActivity(i)
+    end
+
+    handle_create_options_menu do |menu|
+      menu.add 'Update scripts'
+      menu.add 'Synchronize'
+      true
+    end
+
+    handle_options_item_selected do |menu_item|
+      toast menu_item.title
+      case menu_item.title
+      when 'Update scripts'
+        java.lang.System.out.println "Copy scripts"
+        org.ruboto.Script.copy_scripts self
+        java.lang.System.out.println "Copy scripts...OK"
+        toast 'Scripts updated from APK'
+      when 'Synchronize'
+        java.lang.System.out.println "Synchronize"
+        Thread.with_large_stack do
+          require 'replicator'
+          Replicator.synchronize(self)
+        end.join
+        java.lang.System.out.println "Synchronize...OK"
+        toast 'Synchronized with server'
+      else
+        toast "Unknown menu item: #{menu_item.title}"
+      end
     end
 
   rescue

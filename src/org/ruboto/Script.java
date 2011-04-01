@@ -143,6 +143,12 @@ public class Script {
         return false;
     }
 
+    public static void copyScripts(Context context) {
+        configDir(context.getFilesDir().getAbsolutePath() + "/scripts");
+        AssetManager assets = context.getAssets();
+    	copyScripts("scripts", scriptsDirFile, assets);
+    }
+
     private static void copyScripts(String from, File to, AssetManager assets) {
         try {
             byte[] buffer = new byte[8192];
@@ -176,11 +182,10 @@ public class Script {
     }
 
     private static void copyScriptsIfNeeded(Context context) {
-        String to = context.getFilesDir().getAbsolutePath() + "/scripts";
-        AssetManager assets = context.getAssets();
         /* the if makes sure we only do this the first time */
-        if (configDir(to))
-            copyScripts("scripts", scriptsDirFile, assets);
+        if (configDir(context.getFilesDir().getAbsolutePath() + "/scripts")) {
+            copyScripts(context);
+        }
     }
 
 
