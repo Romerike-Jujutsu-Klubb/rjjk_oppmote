@@ -3,6 +3,7 @@ require 'database'
 require 'thread_ext'
 require 'member'
 require 'group'
+require 'date'
 
 ruboto_import_widgets :ListView, :TextView, :LinearLayout, :Button
 java_import "android.content.Intent"
@@ -10,46 +11,60 @@ java_import "android.content.Intent"
 $activity.handle_create do |bundle|
   begin
     group_name = getIntent().getExtras().getString("group_name")
-    setTitle "Medlemmer: #{group_name}"
+
+    Thread.with_large_stack do
+      db = $db_helper.getWritableDatabase
+      @groups = []
+      c = db.rawQuery('SELECT id, name FROM groups', nil)
+      while c.moveToNext
+        @groups << Group.new('id' => c.getInt(0), 'name' => c.getString(1))
+        @group = @groups.last if @groups.last['name'] == group_name
+      end
+      c.close
+
+      (0..6).each do |i|
+        @date = Date.today - i
+        c = db.rawQuery("SELECT id FROM group_schedules WHERE group_id = #{@group['id']} AND weekday = #{@date.wday}", nil)
+        if c.moveToNext
+          @gs_id = c.getInt(0)
+          $activity.runOnUiThread{toast "Group schedule: #{@gs_id}"}
+        else
+          $activity.runOnUiThread{toast "Group schedule not found: group_id = #{@group['id']} AND weekday = #{@date.wday}"}
+        end
+        c.close
+        break if @gs_id
+      end
+
+      @members = []
+      c = db.rawQuery('SELECT id, first_name, last_name FROM members', nil)
+      while c.moveToNext
+        @members << Member.new('id' => c.getInt(0), 'first_name' => c.getString(1), 'last_name' => c.getString(2))
+      end
+      c.close
+
+      @groups_members = []
+      c = db.rawQuery('SELECT group_id, member_id FROM groups_members', nil)
+      while c.moveToNext
+        member_id = c.getInt(1)
+        member = @members.find{|m| m['id'] == member_id}
+        group_id = c.getInt(0)
+        group = @groups.find{|g| g['id'] == group_id}
+        group.members << member if group && member
+      end
+      c.close
+    end.join
+
+    setTitle "Medlemmer: #{group_name} #{@date.strftime('%Y-%m-%d')}"
 
     setup_content do
       begin
         linear_layout :orientation => LinearLayout::VERTICAL do
           begin
-            db = $db_helper.getWritableDatabase
             Thread.with_large_stack do
-              
-              @groups = []
-              c = db.rawQuery('SELECT id, name FROM groups', nil)
-              while c.moveToNext
-                @groups << Group.new('id' => c.getInt(0), 'name' => c.getString(1))
-              end
-              c.close
-              
-              @members = []
-              c = db.rawQuery('SELECT id, first_name, last_name FROM members', nil)
-              while c.moveToNext
-                @members << Member.new('id' => c.getInt(0), 'first_name' => c.getString(1), 'last_name' => c.getString(2))
-              end
-              c.close
+              db = $db_helper.getWritableDatabase
 
-              @groups_members = []
-              c = db.rawQuery('SELECT group_id, member_id FROM groups_members', nil)
-              while c.moveToNext
-                member_id = c.getInt(1)
-                java.lang.System.out.println "member_id: #{member_id.inspect}"
-                member = @members.find{|m| m['id'] == member_id}
-                java.lang.System.out.println "member: #{member.inspect}"
-                @group_id = c.getInt(0)
-                java.lang.System.out.println "group_id: #{@group_id.inspect}"
-                java.lang.System.out.println "group ids: #{@groups.map{|g| g['id']}.inspect}"
-                group = @groups.find{|g| g['id'] == @group_id}
-                group.members << member if group && member
-              end
-              c.close
+              db.close
             end.join
-            db.close
-            java.lang.System.out.println 'list view...'
             @list_view = list_view :list => @groups.find{|g| g['name'] == group_name}.members.map{|m| "#{m['first_name']} #{m['last_name']}"}.sort
             @list_view.setChoiceMode(ListView::CHOICE_MODE_MULTIPLE)
           rescue
@@ -79,17 +94,23 @@ $activity.handle_create do |bundle|
       end
       c.close
 
-      c = db.rawQuery("SELECT group_id FROM groups_members WHERE group_id = #{@group_id} AND member_id = #{mid}", nil)
+      c = db.rawQuery("SELECT count(*) FROM attendances WHERE group_schedule_id = #{@gs_id} AND year = #{@date.year} AND week = #{@date.cweek}", nil)
+      c.moveToNext
+      att_total = c.getInt(0)
+      c.close
+
+      c = db.rawQuery("SELECT member_id FROM attendances WHERE group_schedule_id = #{@gs_id} AND member_id = #{mid} AND year = #{@date.year} AND week = #{@date.cweek}", nil)
       att_cnt = c.getCount
       c.close
       if att_cnt == 0
-        db.execSQL "INSERT INTO groups_members VALUES (#{@group_id}, #{mid})"
-        toast "Present: #{name} Total: #{total}"
+        db.execSQL "INSERT INTO attendances (group_schedule_id, member_id, year, week) VALUES (#{@gs_id}, #{mid}, #{@date.year}, #{@date.cweek})"
+        setTitle "Medlemmer: #{group_name} #{@date.strftime('%Y-%m-%d')} #{att_total + 1}"
+        toast "Present: #{name}, Total: #{att_total + 1}"
       else
-        db.execSQL "DELETE FROM groups_members WHERE group_id = #{@group_id}  AND member_id = #{mid}"
-        toast "Not present: #{name}"
+        db.execSQL "DELETE FROM attendances WHERE group_schedule_id = #{@gs_id} AND member_id = #{mid} AND year = #{@date.year} AND week = #{@date.cweek}"
+        setTitle "Medlemmer: #{group_name} #{@date.strftime('%Y-%m-%d')} #{att_total - 1}"
+        toast "Not present: #{name}, Total: #{att_total - 1}"
       end
-
       db.close
     end
 

@@ -2,6 +2,7 @@ require 'yaml'
 require 'database'
 require 'thread_ext'
 require 'group'
+require 'group_schedule'
 require 'member'
 
 class Replicator
@@ -22,7 +23,6 @@ class Replicator
   import org.apache.http.message.BasicNameValuePair
   import org.apache.http.protocol.HttpContext
   import org.apache.http.protocol.BasicHttpContext
-  
   def self.get_login_form(client, http_context)
     method = HttpGet.new("http://#{SERVER}/user/login")
     EntityUtils.toString(client.execute(method, http_context).entity)
@@ -40,10 +40,8 @@ class Replicator
   def self.load_groups(client, http_context)
     method = HttpGet.new("http://#{SERVER}/groups/yaml")
     response = EntityUtils.toString(client.execute(method, http_context).entity)
-    Log.v "RJJK Oppmøte", "Got response: #{response}"
     groups = YAML.load(response)
     groups.each do |group|
-      Log.v "RJJK Oppmøte", "Group: #{group.inspect}"
       Thread.with_large_stack do
         db = $db_helper.getWritableDatabase
         c = db.rawQuery("SELECT id FROM groups WHERE id = #{group['id']}", nil)
@@ -67,14 +65,33 @@ class Replicator
     end
   end
 
+  def self.load_group_schedules(client, http_context)
+    Log.v "RJJK Oppmøte", "Fetch group schedules response"
+    method = HttpGet.new("http://#{SERVER}/group_schedules/yaml")
+    response = EntityUtils.toString(client.execute(method, http_context).entity)
+    Log.v "RJJK Oppmøte", "Got group schedules response: #{response}"
+    group_schedules = YAML.load(response)
+    group_schedules.each do |gs|
+      Log.v "RJJK Oppmøte", "GroupSchedule: #{gs.inspect}"
+      Thread.with_large_stack do
+        db = $db_helper.getWritableDatabase
+        c = db.rawQuery("SELECT id FROM group_schedules WHERE id = #{gs['id']}", nil)
+        count = c.getCount
+        c.close
+        if count == 0
+          db.execSQL "INSERT INTO group_schedules (id, group_id, weekday, start_at, end_at) VALUES (#{gs['id']}, #{gs['group_id']}, #{gs['weekday']}, '#{gs['start_at']}', '#{gs['end_at']}')"
+        end
+
+        db.close
+      end.join
+    end
+  end
+
   def self.load_members(client, http_context)
-    Log.v "RJJK Oppmøte", "Get members"
     method = HttpGet.new("http://#{SERVER}/members/yaml")
     response = EntityUtils.toString(client.execute(method, http_context).entity)
-    Log.v "RJJK Oppmøte", "Got members response: #{response}"
     members = YAML.load(response)
     members.each do |m|
-      Log.v "RJJK Oppmøte", "Member: #{m.inspect}"
       Thread.with_large_stack do
         db = $db_helper.getWritableDatabase
         c = db.rawQuery("SELECT id FROM members WHERE id = #{m['id']}", nil)
@@ -121,17 +138,24 @@ class Replicator
           submit_login_form(client, http_context)
           load_members(client, http_context)
           load_groups(client, http_context)
+          load_group_schedules(client, http_context)
+    
+          context.runOnUiThread do
+            Toast.makeText(context, "Sunchronized with server", 5000).show
+          end if context.respond_to? :runOnUiThread
         rescue
           Log.e "RJJK Oppmøte", "Exception getting data from server: #{$!.message}\n#{$!.backtrace.join("\n")}"
         ensure
           client.close if client
         end
       end
-
     else
       Log.v "WifiDetector", "Removing notification."
-      Toast.makeText(context, "Not connected to any WIFI network", 5000).show
-      @notification_manager.cancel(HELLO_ID)
+      context.runOnUiThread do
+        Toast.makeText(context, "Not connected to any WIFI network", 5000).show
+        @notification_manager.cancel(HELLO_ID)
+      end if context.respond_to? :runOnUiThread
     end
   end
+
 end

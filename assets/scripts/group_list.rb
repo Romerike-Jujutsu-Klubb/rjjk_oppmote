@@ -61,9 +61,9 @@ $activity.handle_create do |bundle|
         Thread.with_large_stack do
           require 'replicator'
           Replicator.synchronize(self)
-        end.join
-        java.lang.System.out.println "Synchronize...OK"
-        toast 'Synchronized with server'
+        end
+        java.lang.System.out.println "Synchroniing..."
+        toast 'Synchronizing with server'
       else
         toast "Unknown menu item: #{menu_item.title}"
       end

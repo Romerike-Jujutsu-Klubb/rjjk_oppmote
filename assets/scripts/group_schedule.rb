@@ -1,4 +1,4 @@
 require 'record'
 
-class Attendance < Record
+class GroupSchedule < Record
 end
