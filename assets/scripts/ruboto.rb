@@ -90,8 +90,6 @@ end
 def ruboto_allow_handlers(klass)
   klass.class_eval do
     def method_missing(name, *args, &block)
-      java.lang.System.out.println("method_missing: #{name}")
-      java.lang.System.out.println("constants: #{self.class.constants.sort}")
       if name.to_s =~ /^handle_(.*)/ and (const = self.class.const_get("CB_#{$1.upcase}"))
         setCallbackProc(const, block)
         self
@@ -167,8 +165,12 @@ def ruboto_configure_activity(klass)
       setCallbackProc(self.class.const_get("CB_CREATE_OPTIONS_MENU"), p)
 
       p = Proc.new do |num,menu_item|
-        (instance_eval &(menu_item.on_click); return true) if @menu
-        false
+        if @menu
+          instance_eval &(menu_item.on_click)
+          true
+        else
+          false
+        end
       end
       setCallbackProc(self.class.const_get("CB_MENU_ITEM_SELECTED"), p)
     end
@@ -195,8 +197,17 @@ def ruboto_configure_activity(klass)
       setCallbackProc(self.class.const_get("CB_CREATE_CONTEXT_MENU"), p)
 
       p = Proc.new do |menu_item|
-        (instance_eval {menu_item.on_click.call(menu_item.getMenuInfo.position)}; return true) if menu_item.on_click
-        false
+        if menu_item.on_click
+          arg = menu_item
+          begin
+            arg = menu_item.getMenuInfo.position
+          rescue
+          end
+          instance_eval {menu_item.on_click.call(arg)}
+          true
+        else
+          false
+        end
       end
       setCallbackProc(self.class.const_get("CB_CONTEXT_ITEM_SELECTED"), p)
     end
@@ -256,6 +267,7 @@ def ruboto_import_widget(class_name, package_name="android.widget")
    "
 
   setup_list_view       if class_name == :ListView
+  setup_spinner         if class_name == :Spinner
   setup_button          if class_name == :Button
   setup_linear_layout   if class_name == :LinearLayout
   setup_relative_layout if class_name == :RelativeLayout
@@ -347,7 +359,8 @@ def setup_list_view
       if params.has_key? :list
         @adapter_list = Java::java.util.ArrayList.new
         @adapter_list.addAll(params[:list])
-        @adapter = Java::android.widget.ArrayAdapter.new(context, R::layout::simple_list_item_1, @adapter_list)
+        item_layout = params.delete(:item_layout) || R::layout::simple_list_item_1
+        @adapter = Java::android.widget.ArrayAdapter.new(context, item_layout, @adapter_list)
         setAdapter @adapter
         params.delete :list
       end
@@ -356,7 +369,7 @@ def setup_list_view
     end
 
     def reload_list(list)
-      @adapter_list.clear();
+      @adapter_list.clear
       @adapter_list.addAll(list)
       @adapter.notifyDataSetChanged
       invalidate
@@ -364,6 +377,34 @@ def setup_list_view
   end
 
   ruboto_register_handler("org.ruboto.callbacks.RubotoOnItemClickListener", "item_click", ListView, "setOnItemClickListener")
+end
+
+def setup_spinner
+  Spinner.class_eval do
+    attr_reader :adapter, :adapter_list
+
+    def configure(context, params = {})
+      if params.has_key? :list
+        @adapter_list = Java::java.util.ArrayList.new
+        @adapter_list.addAll(params[:list])
+        item_layout = params.delete(:item_layout) || R::layout::simple_spinner_item
+        @adapter = Java::android.widget.ArrayAdapter.new(context, item_layout, @adapter_list)
+        setAdapter @adapter
+        params.delete :list
+      end
+      setOnItemSelectedListener(context)
+      super(context, params)
+    end
+
+    def reload_list(list)
+      @adapter.clear
+      @adapter.addAll(list)
+      @adapter.notifyDataSetChanged
+      invalidate
+    end
+  end
+
+  ruboto_register_handler("org.ruboto.callbacks.RubotoOnItemSelectedListener", "item_selected", Spinner, "setOnItemSelectedListener")
 end
 
 #############################################################################

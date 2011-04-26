@@ -30,5 +30,7 @@ $activity.handle_create do |bundle|
     startActivity(i)
   end
 
+  java_import "org.ruboto.RubotoService"
+  ruboto_setup(RubotoService)
   startService(Intent.new($activity.application_context, Java::no.jujutsu.android.oppmote.WifiDetectorService.java_class))
 end

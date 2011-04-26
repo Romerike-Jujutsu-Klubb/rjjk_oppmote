@@ -1,3 +1,4 @@
+require 'thread_ext'
 Thread.with_large_stack do
   require 'replicator'
 end.join
