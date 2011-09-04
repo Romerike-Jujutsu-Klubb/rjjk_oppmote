@@ -1,6 +1,5 @@
 package org.ruboto;
 
-import android.util.Log;
 import java.io.IOException;
 
 public abstract class RubotoBroadcastReceiver extends android.content.BroadcastReceiver {
@@ -25,7 +24,6 @@ public abstract class RubotoBroadcastReceiver extends android.content.BroadcastR
     }
 
     public RubotoBroadcastReceiver(String scriptName) {
-        Log.d("RubotoBroadcastReceiver", "constructor");
         setScriptName(scriptName);
         if (Script.isInitialized()) {
             loadScript();
@@ -33,7 +31,7 @@ public abstract class RubotoBroadcastReceiver extends android.content.BroadcastR
     }
 
     protected void loadScript() {
-        Script.defineGlobalVariable("$broadcast_receiver", this);
+        Script.put("$broadcast_receiver", this);
         try {
             new Script(scriptName).execute();
         } catch(IOException e) {
@@ -47,8 +45,6 @@ public abstract class RubotoBroadcastReceiver extends android.content.BroadcastR
      */
 
   public void onReceive(android.content.Context context, android.content.Intent intent) {
-    System.out.println("RubotoBroadcastReceiver.onReceive context: " + context);
-    Log.d("RubotoBroadcastReceiver", "onReceive context: " + context);
     if (callbackProcs[CB_RECEIVE] != null) {
       Script.callMethod(callbackProcs[CB_RECEIVE], "call" , new Object[]{context, intent});
     }
