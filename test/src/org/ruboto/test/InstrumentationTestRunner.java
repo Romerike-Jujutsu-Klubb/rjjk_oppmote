@@ -4,6 +4,7 @@ import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.IOException;
@@ -21,15 +22,11 @@ import java.util.List;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
-import org.jruby.exceptions.RaiseException;
-import org.jruby.javasupport.JavaEmbedUtils;
-import org.jruby.RubyClass;
-import org.jruby.runtime.builtin.IRubyObject;
 import org.ruboto.Script;
 
 public class InstrumentationTestRunner extends android.test.InstrumentationTestRunner {
     private Class activityClass;
-    private IRubyObject setup;
+    private Object setup;
     private TestSuite suite;
     
     public TestSuite getAllTests() {
@@ -37,20 +34,31 @@ public class InstrumentationTestRunner extends android.test.InstrumentationTestR
         suite = new TestSuite("Sweet");
         
         try {
-            Script.setUpJRuby(null);
+            if (Script.setUpJRuby(getTargetContext())) {
             Script.defineGlobalVariable("$runner", this);
             Script.defineGlobalVariable("$test", this);
             Script.defineGlobalVariable("$suite", suite);
+
+            // TODO(uwe):  Why doesn't this work?
+            // Script.copyScriptsIfNeeded(getContext());
+
             loadScript("test_helper.rb");
+
+            // TODO(uwe):  Why doesn't this work?
+            // String[] scripts = new File(Script.scriptsDirName(getContext())).list();
+
             String[] scripts = getContext().getResources().getAssets().list("scripts");
             for (String f : scripts) {
                 if (f.equals("test_helper.rb")) continue;
                 Log.i(getClass().getName(), "Found script: " + f);
                 loadScript(f);
             }
+            } else {
+                addError(suite, new RuntimeException("Ruboto Core platform is missing"));
+            }
         } catch (IOException e) {
           addError(suite, e);
-        } catch (RaiseException e) {
+        } catch (RuntimeException e) {
           addError(suite, e);
         }
         return suite;
@@ -60,15 +68,15 @@ public class InstrumentationTestRunner extends android.test.InstrumentationTestR
         this.activityClass = activityClass;
     }
 
-    public void setup(IRubyObject block) {
+    public void setup(Object block) {
         this.setup = block;
     }
 
-    public void test(String name, IRubyObject block) {
-        if (android.os.Build.VERSION.SDK_INT <= android.os.Build.VERSION_CODES.FROYO) {
+    public void test(String name, Object block) {
+        if (android.os.Build.VERSION.SDK_INT <= 8) {
           name ="runTest";
         }
-        Test test = new ActivityTest(activityClass, setup, name, block);
+        Test test = new ActivityTest(activityClass, Script.getScriptFilename(), setup, name, block);
         suite.addTest(test);
         Log.d(getClass().getName(), "Made test instance: " + test);
     }
@@ -83,6 +91,9 @@ public class InstrumentationTestRunner extends android.test.InstrumentationTestR
     }
 
     private void loadScript(String f) throws IOException {
+        // TODO(uwe):  Why doesn't this work?
+        // InputStream is = new FileInputStream(Script.scriptsDirName(getContext()) + "/" + f);
+
         InputStream is = getContext().getResources().getAssets().open("scripts/" + f);
         BufferedReader buffer = new BufferedReader(new InputStreamReader(is));
         StringBuilder source = new StringBuilder();
@@ -94,9 +105,13 @@ public class InstrumentationTestRunner extends android.test.InstrumentationTestR
         buffer.close();
 
         Log.d(getClass().getName(), "Loading test script: " + f);
-        Script.defineGlobalVariable("$script_code", source.toString());
-        Script.exec("$test.instance_eval($script_code)");
-        Log.d(getClass().getName(), "Test script loaded");
+        String oldFilename = Script.getScriptFilename();
+        Script.setScriptFilename(f);
+        Script.put("$script_code", source.toString());
+        Script.setScriptFilename(f);
+        Script.execute("$test.instance_eval($script_code)");
+        Script.setScriptFilename(oldFilename);
+        Log.d(getClass().getName(), "Test script " + f + " loaded");
     }
 
 }

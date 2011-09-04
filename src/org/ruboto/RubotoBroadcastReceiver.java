@@ -1,67 +1,58 @@
 package org.ruboto;
 
+import android.util.Log;
 import java.io.IOException;
 
-import org.jruby.Ruby;
-import org.jruby.runtime.builtin.IRubyObject;
-
 public abstract class RubotoBroadcastReceiver extends android.content.BroadcastReceiver {
-  private Ruby __ruby__;
-  private String scriptName;
-  public Object[] args;
+    private String scriptName;
+    private String remoteVariable = "";
 
+  public static final int CB_RECEIVE = 0;
 
-  private IRubyObject[] callbackProcs = new IRubyObject[0];
+    private Object[] callbackProcs = new Object[1];
 
-  private Ruby getRuby() {
-    if (__ruby__ == null) {
-    	__ruby__ = Script.getRuby();
+    public void setCallbackProc(int id, Object obj) {
+        callbackProcs[id] = obj;
+    }
+	
+    public RubotoBroadcastReceiver setRemoteVariable(String var) {
+        remoteVariable = ((var == null) ? "" : (var + "."));
+        return this;
     }
 
-    return __ruby__;
-  }
+    public void setScriptName(String name){
+        scriptName = name;
+    }
 
-  public void setCallbackProc(int id, IRubyObject obj) {
-    callbackProcs[id] = obj;
-  }
-	
-  public RubotoBroadcastReceiver setRemoteVariable(String var) {
-    return this;
-  }
+    public RubotoBroadcastReceiver(String scriptName) {
+        Log.d("RubotoBroadcastReceiver", "constructor");
+        setScriptName(scriptName);
+        if (Script.isInitialized()) {
+            loadScript();
+        }
+    }
 
-  public void setScriptName(String name){
-    scriptName = name;
-  }
+    protected void loadScript() {
+        Script.defineGlobalVariable("$broadcast_receiver", this);
+        try {
+            new Script(scriptName).execute();
+        } catch(IOException e) {
+            throw new RuntimeException("IOException loading broadcast receiver script", e);
+        }
+    }
 
-  /****************************************************************************************
-   * 
-   *  Activity Lifecycle: onCreate
-   */
-	
-  @Override
-  public void onReceive(android.content.Context arg0, android.content.Intent arg1) {
-    args = new Object[2];
-    args[0] = arg0;
-    args[1] = arg1;
+    /****************************************************************************************
+     * 
+     *  Generated Methods
+     */
 
-    getRuby();
-
-    Script.defineGlobalVariable("$broadcast_receiver", this);
-    Script.defineGlobalVariable("$broadcast_context", arg0);
-    Script.defineGlobalVariable("$broadcast_intent", arg1);
-
-    try {
-      new Script(scriptName).execute();
-    } catch(IOException e) {
-      e.printStackTrace();
+  public void onReceive(android.content.Context context, android.content.Intent intent) {
+    System.out.println("RubotoBroadcastReceiver.onReceive context: " + context);
+    Log.d("RubotoBroadcastReceiver", "onReceive context: " + context);
+    if (callbackProcs[CB_RECEIVE] != null) {
+      Script.callMethod(callbackProcs[CB_RECEIVE], "call" , new Object[]{context, intent});
     }
   }
-
-  /****************************************************************************************
-   * 
-   *  Generated Methods
-   */
-
 
 }	
 

@@ -76,4 +76,10 @@
     -->
     <setup />
 
+    <!-- BEGIN added by ruboto-core -->
+    <target name="ruboto-install-debug" description="Installs the already built debug package">
+        <install-helper />
+    </target>
+    <!-- END added by ruboto-core -->
+
 </project>
