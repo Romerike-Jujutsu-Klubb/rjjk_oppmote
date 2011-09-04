@@ -155,9 +155,9 @@ public class Script {
             for (String f : assets.list(from)) {
                 File dest = new File(to, f);
 
-                if (dest.exists()) {
-                    continue;
-                }
+//                if (dest.exists()) {
+//                    continue;
+//                }
 
                 Log.d(TAG, "copying file from " + from + "/" + f + " to " + dest);
 

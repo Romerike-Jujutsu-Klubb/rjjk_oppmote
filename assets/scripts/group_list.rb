@@ -45,6 +45,7 @@ $activity.handle_create do |bundle|
     handle_create_options_menu do |menu|
       menu.add 'Update scripts'
       menu.add 'Synchronize'
+      menu.add 'Quit'
       true
     end
 
@@ -64,6 +65,8 @@ $activity.handle_create do |bundle|
         end
         java.lang.System.out.println "Synchroniing..."
         toast 'Synchronizing with server'
+      when 'Quit'
+        finish
       else
         toast "Unknown menu item: #{menu_item.title}"
       end

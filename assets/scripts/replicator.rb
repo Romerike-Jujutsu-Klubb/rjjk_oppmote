@@ -25,7 +25,6 @@ class Replicator
   import org.apache.http.message.BasicNameValuePair
   import org.apache.http.protocol.HttpContext
   import org.apache.http.protocol.BasicHttpContext
-  
   def self.get_login_form(client, http_context)
     method = HttpGet.new("http://#{SERVER}/user/login")
     EntityUtils.toString(client.execute(method, http_context).entity)
@@ -112,16 +111,34 @@ class Replicator
     end
   end
 
-def self.upload_attendances(client, http_context)
-  method = HttpPost.new("http://#{SERVER}/user/login")
-  method.setHeader("Content-Type", "application/x-www-form-urlencoded");
-  list = [BasicNameValuePair.new('user[login]', 'uwe'), BasicNameValuePair.new('user[password]', 'CokaBrus')]
-  entity = UrlEncodedFormEntity.new(list)
-  method.setEntity(entity)
-  EntityUtils.toString(client.execute(method, http_context).entity)
-end
+  def self.upload_attendances(client, http_context)
+    Thread.with_large_stack do
+      db = $db_helper.getWritableDatabase
+      c = db.rawQuery("SELECT group_schedule_id, member_id, year, week FROM attendances", nil)
+      while c.moveToNext
+        gsid = c.getInt(0)
+        mid = c.getInt(1)
+        year = c.getInt(2)
+        week = c.getInt(3)
+        puts "Sending #{gsid}, #{mid}, #{year}, #{week}"
+        method = HttpPost.new("http://#{SERVER}/attendances")
+        method.setHeader("Content-Type", "application/x-www-form-urlencoded");
+        list = []
+        list << BasicNameValuePair.new('attendance[group_schedule_id]', gsid.to_s)
+        list << BasicNameValuePair.new('attendance[member_id]', mid.to_s)
+        list << BasicNameValuePair.new('attendance[year]', year.to_s)
+        list << BasicNameValuePair.new('attendance[week]', week.to_s)
+        entity = UrlEncodedFormEntity.new(list)
+        method.setEntity(entity)
+        EntityUtils.toString(client.execute(method, http_context).entity)
+      end
+      c.close
+      db.execSQL "DELETE FROM attendances"
+      db.close
+    end.join
+  end
 
-def self.synchronize(context)
+  def self.synchronize(context)
     Log.v "WifiDetector", "Woohoo!  Network event!"
     wifi_service = context.getSystemService(Java::android.content.Context::WIFI_SERVICE)
     ssid         = wifi_service.connection_info.getSSID
@@ -151,13 +168,13 @@ def self.synchronize(context)
           load_members(client, http_context)
           load_groups(client, http_context)
           load_group_schedules(client, http_context)
-    
+
           context.runOnUiThread do
             Toast.makeText(context, "Got new data", 5000).show
           end if context.respond_to? :runOnUiThread
-          
+
           upload_attendances(client, http_context)
-    
+
           context.runOnUiThread do
             Toast.makeText(context, "Sunchronized with server", 5000).show
           end if context.respond_to? :runOnUiThread
