@@ -24,6 +24,7 @@ class Replicator
   import org.apache.http.message.BasicNameValuePair
   import org.apache.http.protocol.HttpContext
   import org.apache.http.protocol.BasicHttpContext
+
   def self.get_login_form(client, http_context)
     method = HttpGet.new("http://#{SERVER}/user/login")
     EntityUtils.toString(client.execute(method, http_context).entity)
@@ -32,7 +33,7 @@ class Replicator
   def self.submit_login_form(client, http_context)
     method = HttpPost.new("http://#{SERVER}/user/login")
     method.setHeader("Content-Type", "application/x-www-form-urlencoded");
-    list = [BasicNameValuePair.new('user[login]', 'uwe'), BasicNameValuePair.new('user[password]', 'CokaBrus')]
+    list = [BasicNameValuePair.new('user[login]', @@login), BasicNameValuePair.new('user[password]', @@password)]
     entity = UrlEncodedFormEntity.new(list)
     method.setEntity(entity)
     EntityUtils.toString(client.execute(method, http_context).entity)
@@ -138,6 +139,13 @@ class Replicator
   end
 
   def self.synchronize(context)
+    filename = File.join(context.files_dir.path, 'config.yml')
+    return false unless File.exists? filename
+    puts "Read config from #{filename.inspect}"
+    config = YAML.load_file(filename)
+    @@login = config[:email]
+    @@password = config[:password]
+
     Log.v "WifiDetector", "Synchronize with server"
     wifi_service = context.getSystemService(Java::android.content.Context::WIFI_SERVICE)
     ssid         = wifi_service.connection_info.getSSID
