@@ -6,13 +6,11 @@
     android:orientation="vertical"
     android:gravity="center_horizontal|center_vertical"
 >
-<!--                                                                                                                                                                                                                                 
--->
   <ImageButton
       android:id="@+id/image"
       android:layout_width="fill_parent"
       android:layout_height="fill_parent"
-      android:src="@drawable/icon"
+      android:src="@drawable/get_ruboto_core"
       android:layout_weight="1"
       android:scaleType="fitCenter"
       android:onClick="getRubotoCore"

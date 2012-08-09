@@ -1,3 +1,4 @@
+# encoding: UTF-8
 require 'yaml'
 require 'database'
 require 'group'
@@ -7,7 +8,7 @@ require 'member'
 java_import 'android.util.Log'
 
 class Replicator
-  HELLO_ID = 1;
+  HELLO_ID = 1
   SERVER = 'jujutsu.no'
 
   import 'android.app.Notification'
@@ -32,7 +33,7 @@ class Replicator
 
   def self.submit_login_form(client, http_context)
     method = HttpPost.new("http://#{SERVER}/user/login")
-    method.setHeader("Content-Type", "application/x-www-form-urlencoded");
+    method.setHeader("Content-Type", "application/x-www-form-urlencoded")
     list = [BasicNameValuePair.new('user[login]', @@login), BasicNameValuePair.new('user[password]', @@password)]
     entity = UrlEncodedFormEntity.new(list)
     method.setEntity(entity)
@@ -185,7 +186,7 @@ class Replicator
           context.runOnUiThread do
             Toast.makeText(context, "Sunchronized with server", 5000).show
           end if context.respond_to? :runOnUiThread
-        rescue
+        rescue Exception
           Log.e "RJJK Oppmøte", "Exception getting data from server: #{$!.message}\n#{$!.backtrace.join("\n")}"
         ensure
           client.close if client

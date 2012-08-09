@@ -1,20 +1,20 @@
 package no.jujutsu.android.oppmote;
 
-import org.ruboto.Script;
+import org.ruboto.JRubyAdapter;
 
 public class WifiReceiver extends org.ruboto.RubotoBroadcastReceiver {
     private boolean scriptLoaded = false;
 
     public WifiReceiver() {
         super("wifi_receiver.rb");
-        if (Script.isInitialized()) {
+        if (JRubyAdapter.isInitialized()) {
             scriptLoaded = true;
         }
     }
 
     public void onReceive(android.content.Context context, android.content.Intent intent) {
         if (!scriptLoaded) {
-            if (Script.setUpJRuby(context)) {
+            if (JRubyAdapter.setUpJRuby(context)) {
                 loadScript();
                 scriptLoaded = true;
             } else {
