@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URL;
 
 import android.content.Context;
 import android.content.res.AssetManager;
@@ -31,6 +32,7 @@ public class Script {
     public static String toCamelCase(String s) {
         String[] parts = s.replace(".rb", "").split("_");
         for (int i = 0 ; i < parts.length ; i++) {
+            if (parts[i].length() == 0) continue;
             parts[i] = parts[i].substring(0,1).toUpperCase() + parts[i].substring(1);
         }
         return java.util.Arrays.toString(parts).replace(", ", "").replaceAll("[\\[\\]]", "");
@@ -39,105 +41,57 @@ public class Script {
     public static String toSnakeCase(String s) {
         return s.replaceAll(
             String.format("%s|%s|%s",
-                "(?<=[A-Z])(?=[A-Z][a-z])",
+                "(?<=[A-Z])(?=[A-Z][a-z0-9])",
                 "(?<=[^A-Z])(?=[A-Z])",
-                "(?<=[A-Za-z])(?=[^A-Za-z])"
+                "(?<=[A-Za-z0-9])(?=[^A-Za-z0-9])"
             ),
             "_"
-        ).toLowerCase();
+        ).replace("__", "_").toLowerCase();
     }
 
-    // Private static methods
-
-    // private static void copyAssets(Context context, String directory) {
-    // 	File dest = new File(new File(scriptsDirFile).getParentFile(), directory);
-	// 	if (dest.exists() || dest.mkdir()) {
-    //         copyScripts(directory, dest, context.getAssets());
-	// 	} else {
-    //         throw new RuntimeException("Unable to create scripts directory: " + dest);
-	// 	}
-    // }
-
-    // private static void copyScripts(String from, File to, AssetManager assets) {
-    //     try {
-    //         byte[] buffer = new byte[8192];
-    //         for (String f : assets.list(from)) {
-    //             File dest = new File(to, f);
-    //
-    //             if (dest.exists()) {
-    //                 continue;
-    //             }
-    //
-    //             Log.d("copying file from " + from + "/" + f + " to " + dest);
-    //
-    //             if (assets.list(from + "/" + f).length == 0) {
-    //                 InputStream is = assets.open(from + "/" + f);
-    //                 OutputStream fos = new BufferedOutputStream(new FileOutputStream(dest), 8192);
-    //
-    //                 int n;
-    //                 while ((n = is.read(buffer, 0, buffer.length)) != -1) {
-    //                     fos.write(buffer, 0, n);
-    //                 }
-    //                 is.close();
-    //                 fos.close();
-    //             } else {
-    //                 dest.mkdir();
-    //                 copyScripts(from + "/" + f, dest, assets);
-    //             }
-    //         }
-    //     } catch (IOException iox) {
-    //         Log.e("error copying scripts", iox);
-    //     }
-    // }
-
-    /*************************************************************************************************
-     *
-     * Constructors
-     */
     public Script(String name) {
         this.name = name;
     }
 
-    /*************************************************************************************************
-     *
-     * Instance methods
-     */
     public String execute() throws IOException {
-        return JRubyAdapter.execute(getContents());
+        return JRubyAdapter.runScriptlet(getContents()).toString();
     }
 
     boolean exists() {
-        for (String dir : scriptsDir) {
-            System.out.println("Checking file: " + dir + "/" + name);
-            if (new File(scriptsDir + "/" + name).exists()) {
-                return true;
-            }
-        }
-        try {
-            java.io.InputStream is = getClass().getClassLoader().getResourceAsStream(name);
-            System.out.println("Classpath resource: " + is);
-            if (is != null) {
-                is.close();
-                return true;
-            } else {
-                return false;
-            }
-        } catch (IOException ioex) {
-            System.out.println("Classpath resource exception: " + ioex);
-            return false;
-        }
+        return getAbsolutePath() != null;
     }
 
+    String getAbsolutePath() {
+        for (String dir : scriptsDir) {
+            String path = dir + "/" + name;
+            Log.d("Checking path: " + path);
+            if (new File(path).exists()) {
+                return "file:" + path;
+            }
+        }
+        URL url = getClass().getClassLoader().getResource(name);
+        Log.d("Classpath resource: " + url);
+        if (url != null) {
+            return url.toString();
+        }
+        return null;
+    }
+
+    public File getFile() {
+        for (String dir : scriptsDir) {
+            File f = new File(dir, name);
+            if (f.exists()) {
+                return f;
+            }
+        }
+        return new File(scriptsDir[0], name);
+    }
+		
     public String getContents() throws IOException {
         InputStream is = null;
         BufferedReader buffer = null;
         try {
-            if (new File(scriptsDir + "/" + name).exists()) {
-                is = new java.io.FileInputStream(scriptsDir + "/" + name);
-            } else {
-                is = getClass().getClassLoader().getResourceAsStream(name);
-            }
-            buffer = new BufferedReader(new java.io.InputStreamReader(is), 8192);
+            buffer = new BufferedReader(new java.io.InputStreamReader(new URL(getAbsolutePath()).openStream()), 8192);
             StringBuilder source = new StringBuilder();
             while (true) {
                 String line = buffer.readLine();
@@ -156,16 +110,6 @@ public class Script {
 			}
 		}
 	}
-
-    // public File getFile() {
-    //     for (String dir : scriptsDir) {
-    //         File f = new File(dir, name);
-    //         if (f.exists()) {
-    //             return f;
-    //         }
-    //     }
-    //     return new File(scriptsDir[0], name);
-    // }
 
     public String getName() {
         return name;

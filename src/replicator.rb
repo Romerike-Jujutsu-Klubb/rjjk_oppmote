@@ -1,6 +1,5 @@
 # encoding: UTF-8
 require 'yaml'
-require 'database'
 require 'group'
 require 'group_schedule'
 require 'member'
@@ -32,8 +31,9 @@ class Replicator
   end
 
   def self.submit_login_form(client, http_context)
+    puts 'submit_login_form'
     method = HttpPost.new("http://#{SERVER}/user/login")
-    method.setHeader("Content-Type", "application/x-www-form-urlencoded")
+    method.setHeader('Content-Type', 'application/x-www-form-urlencoded')
     list = [BasicNameValuePair.new('user[login]', @@login), BasicNameValuePair.new('user[password]', @@password)]
     entity = UrlEncodedFormEntity.new(list)
     method.setEntity(entity)
@@ -41,8 +41,10 @@ class Replicator
   end
 
   def self.load_groups(client, http_context)
+    puts 'load_groups'
     method = HttpGet.new("http://#{SERVER}/groups/yaml")
     response = EntityUtils.toString(client.execute(method, http_context).entity)
+    puts "load_groups responded: #{response}"
     groups = YAML.load(response)
     groups.each do |group|
       Thread.with_large_stack do
@@ -69,13 +71,13 @@ class Replicator
   end
 
   def self.load_group_schedules(client, http_context)
-    Log.v "RJJK Oppmøte", "Fetch group schedules response"
+    Log.v 'RJJK Oppmøte', 'Fetch group schedules response'
     method = HttpGet.new("http://#{SERVER}/group_schedules/yaml")
     response = EntityUtils.toString(client.execute(method, http_context).entity)
-    Log.v "RJJK Oppmøte", "Got group schedules response: #{response}"
+    Log.v 'RJJK Oppmøte', "Got group schedules response: #{response}"
     group_schedules = YAML.load(response)
     group_schedules.each do |gs|
-      Log.v "RJJK Oppmøte", "GroupSchedule: #{gs.inspect}"
+      Log.v 'RJJK Oppmøte', "GroupSchedule: #{gs.inspect}"
       Thread.with_large_stack do
         db = $db_helper.getWritableDatabase
         c = db.rawQuery("SELECT id FROM group_schedules WHERE id = #{gs['id']}", nil)
@@ -95,6 +97,7 @@ class Replicator
     response = EntityUtils.toString(client.execute(method, http_context).entity)
     members = YAML.load(response)
     members.each do |m|
+      Log.v 'RJJK Oppmøte', "Member: #{m.inspect}"
       Thread.with_large_stack do
         db = $db_helper.getWritableDatabase
         c = db.rawQuery("SELECT id FROM members WHERE id = #{m['id']}", nil)
@@ -115,7 +118,7 @@ class Replicator
   def self.upload_attendances(client, http_context)
     Thread.with_large_stack do
       db = $db_helper.getWritableDatabase
-      c = db.rawQuery("SELECT group_schedule_id, member_id, year, week FROM attendances", nil)
+      c = db.rawQuery('SELECT group_schedule_id, member_id, year, week FROM attendances', nil)
       while c.moveToNext
         gsid = c.getInt(0)
         mid = c.getInt(1)
@@ -123,7 +126,7 @@ class Replicator
         week = c.getInt(3)
         puts "Sending #{gsid}, #{mid}, #{year}, #{week}"
         method = HttpPost.new("http://#{SERVER}/attendances")
-        method.setHeader("Content-Type", "application/x-www-form-urlencoded");
+        method.setHeader('Content-Type', 'application/x-www-form-urlencoded')
         list = []
         list << BasicNameValuePair.new('attendance[group_schedule_id]', gsid.to_s)
         list << BasicNameValuePair.new('attendance[member_id]', mid.to_s)
@@ -134,42 +137,42 @@ class Replicator
         EntityUtils.toString(client.execute(method, http_context).entity)
       end
       c.close
-      db.execSQL "DELETE FROM attendances"
+      db.execSQL 'DELETE FROM attendances'
       db.close
     end.join
   end
 
   def self.synchronize(context)
-    filename = File.join(context.files_dir.path, 'config.yml')
-    return false unless File.exists? filename
-    puts "Read config from #{filename.inspect}"
-    config = YAML.load_file(filename)
-    @@login = config[:email]
-    @@password = config[:password]
+    config = Config.new(context)
+    return false unless config.ok?
+    @@login = config.email
+    @@password = config.password
 
-    Log.v "WifiDetector", "Synchronize with server"
+    Thread.with_large_stack do
+
+    Log.v 'WifiDetector', 'Synchronize with server'
     wifi_service = context.getSystemService(Java::android.content.Context::WIFI_SERVICE)
     ssid         = wifi_service.connection_info.getSSID
     if true || ssid
       @notification_manager = context.getSystemService(Java::android.content.Context::NOTIFICATION_SERVICE)
       icon                  = $package.R::drawable::icon
-      tickerText            = "Sync!"
+      tickerText            = 'Sync!'
       notify_when           = java.lang.System.currentTimeMillis
       notification          = Notification.new(icon, tickerText, notify_when)
       context               = context
-      contentTitle          = "RJJK Oppmøte"
-      contentText           = "Se på oppmøte"
+      contentTitle          = 'RJJK Oppmøte'
+      contentText           = 'Se på oppmøte'
       notificationIntent    = Java::android.content.Intent.new(context, $package.GroupList.java_class)
       contentIntent         = PendingIntent.getActivity(context, 0, notificationIntent, 0)
       notification.setLatestEventInfo(context, contentTitle, contentText, contentIntent)
 
-      @notification_manager.notify(HELLO_ID, notification);
+      @notification_manager.notify(HELLO_ID, notification)
 
-      Thread.start do
+      Thread.with_large_stack 256 do
         begin
           client = AndroidHttpClient.newInstance('Android')
           http_context = BasicHttpContext.new
-          http_context.setAttribute(ClientContext.COOKIE_STORE, org.apache.http.impl.client.BasicCookieStore.new);
+          http_context.setAttribute(ClientContext.COOKIE_STORE, org.apache.http.impl.client.BasicCookieStore.new)
 
           get_login_form(client, http_context)
           submit_login_form(client, http_context)
@@ -178,27 +181,34 @@ class Replicator
           load_group_schedules(client, http_context)
 
           context.runOnUiThread do
-            Toast.makeText(context, "Got new data", 5000).show
+            Toast.makeText(context, 'Got new data', 5000).show
           end if context.respond_to? :runOnUiThread
 
           upload_attendances(client, http_context)
 
           context.runOnUiThread do
-            Toast.makeText(context, "Sunchronized with server", 5000).show
+            Toast.makeText(context, 'Sunchronized with server', 5000).show
+            if context.respond_to? :update_groups
+              puts 'notify client'
+              context.update_groups
+            else
+              puts "primitive client: #{context}"
+            end
           end if context.respond_to? :runOnUiThread
         rescue Exception
-          Log.e "RJJK Oppmøte", "Exception getting data from server: #{$!.message}\n#{$!.backtrace.join("\n")}"
+          Log.e 'RJJK Oppmøte', "Exception getting data from server: #{$!.message}\n#{$!.backtrace.join("\n")}"
         ensure
           client.close if client
         end
       end
     else
-      Log.v "WifiDetector", "Removing notification."
+      Log.v 'WifiDetector', 'Removing notification.'
       context.runOnUiThread do
-        Toast.makeText(context, "Not connected to any WIFI network", 5000).show
+        Toast.makeText(context, 'Not connected to any WIFI network', 5000).show
         @notification_manager.cancel(HELLO_ID)
       end if context.respond_to? :runOnUiThread
     end
+  end
   end
 
 end

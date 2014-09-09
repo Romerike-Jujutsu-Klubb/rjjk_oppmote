@@ -1,21 +1,25 @@
-with_large_stack{require 'yaml'}
+with_large_stack { require 'yaml' }
 
 ruboto_import_widgets :Button, :EditText, :LinearLayout, :TextView
 
-$activity.handle_create do |bundle|
-  setTitle "Innlogging"
+class LoginActivity
+  def onCreate(bundle)
+    super
+    setTitle 'Innlogging'
 
-  setup_content do
-    linear_layout :orientation => LinearLayout::VERTICAL do
-      text_view :text => 'E-post:'
+    window.soft_input_mode = WindowManager::LayoutParams::SOFT_INPUT_STATE_ALWAYS_VISIBLE
+
+    self.content_view = linear_layout :orientation => LinearLayout::VERTICAL do
+      text_view text: 'E-post:', input_type: InputType::TYPE_CLASS_TEXT | InputType::TYPE_TEXT_VARIATION_EMAIL_ADDRESS
       @email_view = edit_text :width => :fill_parent
       text_view :text => 'Passord:'
       @password_view = edit_text :width => :fill_parent, :transformation_method => android.text.method.PasswordTransformationMethod.instance
-      button :text => 'Lagre'
+      button :text => 'Lagre', :on_click_listener => proc{save_login}
     end
   end
 
-  handle_resume do
+  def onResume
+    super
     filename = File.join(files_dir.path, 'config.yml')
     if File.exists? filename
       puts "Read config from #{filename.inspect}"
@@ -28,10 +32,10 @@ $activity.handle_create do |bundle|
     @password_view.text = config[:password]
   end
 
-  handle_click do
+  def save_login
     filename = File.join(files_dir.path, 'config.yml')
     with_large_stack do
-      File.open(filename, 'w'){|f| f << YAML.dump({:email => @email_view.text.to_s, :password => @password_view.text.to_s})}
+      File.open(filename, 'w') { |f| f << YAML.dump({:email => @email_view.text.to_s, :password => @password_view.text.to_s}) }
     end
     puts "Wrote config to #{filename.inspect}"
     finish

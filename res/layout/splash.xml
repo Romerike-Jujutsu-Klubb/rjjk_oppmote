@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="fill_parent"
+              android:layout_height="fill_parent"
+              android:background="#ffffff"
+              android:orientation="vertical"
+              android:gravity="center">
+  <TextView android:layout_marginTop="30dp" android:layout_width="fill_parent" android:layout_height="wrap_content"/> <!-- Spacer -->
+
+  <ImageView android:layout_width="fill_parent"
+             android:layout_height="fill_parent"
+             android:src="@drawable/rjjk_logo_320" android:scaleType="fitCenter"
+             android:layout_weight="1"
+          />
+  <TextView android:layout_marginTop="30dp" android:layout_width="fill_parent" android:layout_height="wrap_content"/> <!-- Spacer -->
+  <TextView android:id="@+id/text_main"
+            android:text=" Romerike Jujutsu Klubb"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:layout_weight="1" android:textColor="#5B7C7C"
+            android:gravity="center" android:textSize="30dp"
+          />
+  <TextView android:layout_marginTop="30dp" android:layout_width="fill_parent" android:layout_height="wrap_content"/> <!-- Spacer -->
+  <ProgressBar
+          android:layout_width="fill_parent"
+          android:layout_height="fill_parent"
+          android:layout_weight="1"
+          android:gravity="center"
+          />
+  <TextView android:id="@+id/text_main"
+            android:text="Starter..."
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:layout_weight="1" android:textColor="#FFFFFF"
+            android:gravity="center" android:textSize="30dp"/>
+</LinearLayout>

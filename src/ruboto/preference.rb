@@ -8,32 +8,24 @@
 
 require 'ruboto/activity'
 
-java_import "android.preference.PreferenceScreen"
-java_import "android.preference.Preference"
-ruboto_import "org.ruboto.RubotoPreferenceActivity"
+java_import 'android.preference.PreferenceScreen'
+java_import 'android.preference.Preference'
+java_import 'org.ruboto.RubotoPreferenceActivity'
 ruboto_configure_activity(RubotoPreferenceActivity)
 
 RubotoPreferenceActivity.class_eval do
     def preference_screen(params={})
       rv = self.getPreferenceManager.createPreferenceScreen(self)
+      parent = params.delete(:parent) || @parent
       rv.configure self, params
-      @parent.addPreference(rv) if @parent
+      parent.addPreference(rv) if parent
+
       if block_given?
         old_parent, @parent = @parent, rv
         yield
         @parent = old_parent
       end
       rv
-    end
-
-    def setup_preference_screen &block
-      @preference_screen_block = block
-    end
-
-    def on_create(bundle)
-      @parent = nil
-      setPreferenceScreen(instance_eval &@preference_screen_block) if @preference_screen_block
-      instance_eval { @finish_create_block.call } if @finish_create_block
     end
 end
 
@@ -57,15 +49,17 @@ def ruboto_import_preferences(*preferences)
   preferences.each { |i| ruboto_import_preference i }
 end
 
-def ruboto_import_preference(class_name, package_name="android.preference")
+def ruboto_import_preference(class_name, package_name='android.preference')
   klass = java_import("#{package_name}.#{class_name}") || eval("Java::#{package_name}.#{class_name}")
   return unless klass
 
   RubotoPreferenceActivity.class_eval "
      def #{(class_name.to_s.gsub(/([A-Z])/) { '_' + $1.downcase })[1..-1]}(params={})
         rv = #{class_name}.new self
+        parent = params.delete(:parent) || @parent
         rv.configure self, params
-        @parent.addPreference(rv) if @parent
+        parent.addPreference(rv) if parent
+      
         if block_given?
           old_parent, @parent = @parent, rv
           yield
