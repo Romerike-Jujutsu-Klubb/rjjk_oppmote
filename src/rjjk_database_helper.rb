@@ -13,6 +13,7 @@ class RjjkDatabaseHelper < Java::AndroidDatabaseSqlite::SQLiteOpenHelper
       birthdate date,
       male boolean not null,
       joined_on date,
+      left_on date,
       contract_id integer references contracts(id),
       parent_name varchar(100),
       address varchar(100) not null,
@@ -21,7 +22,9 @@ class RjjkDatabaseHelper < Java::AndroidDatabaseSqlite::SQLiteOpenHelper
       instructor boolean not null,
       image blob,
       image_content_type varchar(32),
-      kid varchar(64)
+      kid varchar(64),
+      rank_pos integer,
+      rank_name varchar(32)
     )')
 
     db.execSQL('CREATE TABLE groups (
@@ -51,9 +54,8 @@ class RjjkDatabaseHelper < Java::AndroidDatabaseSqlite::SQLiteOpenHelper
     )')
 
     java.lang.System.out.println 'create OK'
-
     java.lang.System.out.println 'database OK'
-      nil
+    nil
   rescue
     java.lang.System.out.println "Exception: #{$!}"
   end

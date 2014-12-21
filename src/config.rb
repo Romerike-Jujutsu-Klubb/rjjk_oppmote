@@ -28,4 +28,8 @@ class Config
   def filename
     File.join(@context.files_dir.path, 'config.yml')
   end
+
+  def to_s
+    inspect
+  end
 end

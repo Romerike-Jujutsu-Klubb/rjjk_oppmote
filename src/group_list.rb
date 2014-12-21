@@ -24,6 +24,12 @@ class GroupList
     show_login_activity unless Config.new(self).ok?
   end
 
+  # FIXME(uwe):  Only needed for Ruboto::Activity::Reload.
+  # FIXME(uwe):  Should not be enecessary.  Fix in Ruboto!
+  def onPause
+    super
+  end
+
   def onCreateOptionsMenu(menu)
     menu.add('Sett passord').set_on_menu_item_click_listener do |menu_item|
       show_login_activity
@@ -36,6 +42,10 @@ class GroupList
       toast 'Synchronizing with server'
       true
     end
+    menu.add('About').setOnMenuItemClickListener do |menu_item|
+      toast "Version: #{package_manager.getPackageInfo($package_name, 0).versionName}"
+      true
+    end
     menu.add('Avslutt').setOnMenuItemClickListener do |menu_item|
       finish
       true
@@ -45,15 +55,18 @@ class GroupList
 
   def update_groups
     with_large_stack :size => 256 do
-      groups = load_groups
-      puts "LOADED groups: #{@list_view} #{@list_view.adapter.inspect} #{groups}"
-      if groups.empty?
-        Replicator.synchronize(self)
-      else
-        run_on_ui_thread do
-          @list_view.adapter.clear
-          @list_view.adapter.add_all groups
+      if (groups = load_groups)
+        puts "LOADED groups: #{@list_view} #{@list_view.adapter.inspect} #{groups}"
+        if groups.empty?
+          Replicator.synchronize(self)
+        else
+          run_on_ui_thread do
+            @list_view.adapter.clear
+            @list_view.adapter.add_all groups
+          end
         end
+      else
+        puts 'No groups found!'
       end
     end
     puts 'Groups updated!'
@@ -64,9 +77,9 @@ class GroupList
   def show_login_activity
     i = Intent.new
     i.setClassName($package_name, 'org.ruboto.RubotoActivity')
-    configBundle = android.os.Bundle.new
-    configBundle.put_string('Script', 'login_activity.rb')
-    i.putExtra('Ruboto Config', configBundle)
+    config_bundle = android.os.Bundle.new
+    config_bundle.put_string('Script', 'login_activity.rb')
+    i.putExtra('Ruboto Config', config_bundle)
     startActivity(i)
   end
 
@@ -82,6 +95,8 @@ class GroupList
     db = $db_helper.getWritableDatabase
     puts 'Got DB!'
     groups = []
+    # FIXME(uwe):  Only show open groups
+    # c = db.rawQuery('SELECT name FROM groups WHERE closed_on IS NULL', nil)
     c = db.rawQuery('SELECT name FROM groups', nil)
     while c.moveToNext
       groups << c.getString(0)

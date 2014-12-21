@@ -679,7 +679,6 @@ if (JRubyAdapter.isInitialized() && scriptInfo.isReadyToLoad()) {
   }
 */
 
-/*
   public void onPause() {
     if (ScriptLoader.isCalledFromJRuby()) {super.onPause(); return;}
     if (!JRubyAdapter.isInitialized()) {
@@ -702,7 +701,6 @@ if (JRubyAdapter.isInitialized() && scriptInfo.isReadyToLoad()) {
       }
     }
   }
-*/
 
 /*
   public void onPostCreate(android.os.Bundle savedInstanceState) {

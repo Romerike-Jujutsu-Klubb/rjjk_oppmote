@@ -12,4 +12,13 @@ class Record
     attributes[key]
   end
 
+  def method_missing(m, *args)
+    return attributes[m.to_s] if attributes.include?(m.to_s)
+    puts "Unknown method: #{m} #{args} #{attributes}"
+    super
+  end
+
+  def respond_to?(m)
+    attributes.include?(m.to_s) || super
+  end
 end

@@ -27,17 +27,24 @@ class Replicator
 
   def self.get_login_form(client, http_context)
     method = HttpGet.new("http://#{SERVER}/user/login")
-    EntityUtils.toString(client.execute(method, http_context).entity)
+    response = EntityUtils.toString(client.execute(method, http_context).entity)
+    response =~ /<input name="authenticity_token" type="hidden" value="([^"]*)" \/>/
+    authenticity_token = $1
   end
 
-  def self.submit_login_form(client, http_context)
+  def self.submit_login_form(client, http_context, authenticity_token)
     puts 'submit_login_form'
     method = HttpPost.new("http://#{SERVER}/user/login")
     method.setHeader('Content-Type', 'application/x-www-form-urlencoded')
-    list = [BasicNameValuePair.new('user[login]', @@login), BasicNameValuePair.new('user[password]', @@password)]
+    list = [
+        BasicNameValuePair.new('authenticity_token', authenticity_token),
+        BasicNameValuePair.new('user[login]', @@login),
+        BasicNameValuePair.new('user[password]', @@password)
+    ]
     entity = UrlEncodedFormEntity.new(list)
     method.setEntity(entity)
-    EntityUtils.toString(client.execute(method, http_context).entity)
+    response = EntityUtils.toString(client.execute(method, http_context).entity)
+    Log.v 'RJJK Oppmøte', "Got login body: #{response}"
   end
 
   def self.load_groups(client, http_context)
@@ -46,35 +53,36 @@ class Replicator
     response = EntityUtils.toString(client.execute(method, http_context).entity)
     puts "load_groups responded: #{response}"
     groups = YAML.load(response)
+    db = $db_helper.getWritableDatabase
+    db.execSQL 'DELETE FROM groups_members'
+    db.execSQL "DELETE FROM groups WHERE id NOT IN (#{groups.map { |g| g['id'] }.join(',')})"
     groups.each do |group|
-      Thread.with_large_stack do
-        db = $db_helper.getWritableDatabase
-        c = db.rawQuery("SELECT id FROM groups WHERE id = #{group['id']}", nil)
+      c = db.rawQuery("SELECT id FROM groups WHERE id = #{group['id']}", nil)
+      count = c.getCount
+      c.close
+      if count == 0
+        db.execSQL "INSERT INTO groups VALUES (#{group['id']}, '#{group['name']}')"
+      else
+        db.execSQL "UPDATE groups SET name = '#{group['name']}' WHERE id = #{group['id']}"
+      end
+
+      group['members'].each do |member_id|
+        c = db.rawQuery("SELECT group_id FROM groups_members WHERE group_id = #{group['id']} AND member_id = #{member_id}", nil)
         count = c.getCount
         c.close
         if count == 0
-          db.execSQL "INSERT INTO groups VALUES (#{group['id']}, '#{group['name']}')"
+          db.execSQL "INSERT INTO groups_members VALUES (#{group['id']}, #{member_id})"
         end
-
-        group['members'].each do |mid|
-          c = db.rawQuery("SELECT group_id FROM groups_members WHERE group_id = #{group['id']} AND member_id = #{mid}", nil)
-          count = c.getCount
-          c.close
-          if count == 0
-            db.execSQL "INSERT INTO groups_members VALUES (#{group['id']}, #{mid})"
-          end
-        end
-
-        db.close
-      end.join
+      end
     end
+    db.close
   end
 
   def self.load_group_schedules(client, http_context)
-    Log.v 'RJJK Oppmøte', 'Fetch group schedules response'
+    Log.v 'RJJK Oppmøte', 'Fetch group schedules body'
     method = HttpGet.new("http://#{SERVER}/group_schedules/yaml")
     response = EntityUtils.toString(client.execute(method, http_context).entity)
-    Log.v 'RJJK Oppmøte', "Got group schedules response: #{response}"
+    Log.v 'RJJK Oppmøte', "Got group schedules body: #{response}"
     group_schedules = YAML.load(response)
     group_schedules.each do |gs|
       Log.v 'RJJK Oppmøte', "GroupSchedule: #{gs.inspect}"
@@ -94,8 +102,15 @@ class Replicator
 
   def self.load_members(client, http_context)
     method = HttpGet.new("http://#{SERVER}/members/yaml")
-    response = EntityUtils.toString(client.execute(method, http_context).entity)
-    members = YAML.load(response)
+    response = client.execute(method, http_context)
+    status_code = response.status_line.status_code
+    unless status_code == 200
+      raise "Bad status code loading members: #{status_code}"
+    end
+    body = EntityUtils.toString(response.entity)
+    members = YAML.load(body)
+    Log.v 'RJJK Oppmøte', "Members: #{members.inspect}"
+
     members.each do |m|
       Log.v 'RJJK Oppmøte', "Member: #{m.inspect}"
       Thread.with_large_stack do
@@ -106,10 +121,10 @@ class Replicator
         if mcount > 0
           db.execSQL "DELETE FROM members WHERE id = #{m['id']}"
         end
-        db.execSQL "INSERT INTO members(id, first_name, last_name, male, address, payment_problem, instructor) VALUES (
+        db.execSQL "INSERT INTO members(id, first_name, last_name, male, address, payment_problem, instructor, rank_pos, rank_name) VALUES (
         #{m['id']}, '#{m['first_name']}', '#{m['last_name'].gsub("'", "''")}', #{m['male'] == 't' ? 1 : 0},
-        '#{m['address']}', #{m['payment_problem'] == 't' ? 1 : 0}, #{m['instructor'] == 't' ? 1 : 0}
-      )"
+        '#{m['address']}', #{m['payment_problem'] == 't' ? 1 : 0}, #{m['instructor'] == 't' ? 1 : 0},
+        #{m['rank_pos'] || 'NULL'}, '#{m['rank_name']}')"
         db.close
       end.join
     end
@@ -144,40 +159,53 @@ class Replicator
 
   def self.synchronize(context)
     config = Config.new(context)
-    return false unless config.ok?
+    unless config.ok?
+      puts "Config not OK: #{config}"
+      puts "Config.email: #{config.email}"
+      puts "Config.password: #{config.password}"
+      return false
+    end
     @@login = config.email
     @@password = config.password
 
     Thread.with_large_stack do
 
-    Log.v 'WifiDetector', 'Synchronize with server'
-    wifi_service = context.getSystemService(Java::android.content.Context::WIFI_SERVICE)
-    ssid         = wifi_service.connection_info.getSSID
-    if true || ssid
-      @notification_manager = context.getSystemService(Java::android.content.Context::NOTIFICATION_SERVICE)
-      icon                  = $package.R::drawable::icon
-      tickerText            = 'Sync!'
-      notify_when           = java.lang.System.currentTimeMillis
-      notification          = Notification.new(icon, tickerText, notify_when)
-      context               = context
-      contentTitle          = 'RJJK Oppmøte'
-      contentText           = 'Se på oppmøte'
-      notificationIntent    = Java::android.content.Intent.new(context, $package.GroupList.java_class)
-      contentIntent         = PendingIntent.getActivity(context, 0, notificationIntent, 0)
-      notification.setLatestEventInfo(context, contentTitle, contentText, contentIntent)
+      Log.v 'WifiDetector', 'Synchronize with server'
+      wifi_service = context.getSystemService(Java::android.content.Context::WIFI_SERVICE)
+      ssid = wifi_service.connection_info.getSSID
+      if true || ssid
+        @notification_manager = context.getSystemService(Java::android.content.Context::NOTIFICATION_SERVICE)
+        icon = $package.R::drawable::icon
+        tickerText = 'Sync!'
+        notify_when = java.lang.System.currentTimeMillis
+        notification = Notification.new(icon, tickerText, notify_when)
+        context = context
+        contentTitle = 'RJJK Oppmøte'
+        contentText = 'Se på oppmøte'
+        notificationIntent = Java::android.content.Intent.new(context, $package.GroupList.java_class)
+        contentIntent = PendingIntent.getActivity(context, 0, notificationIntent, 0)
+        notification.setLatestEventInfo(context, contentTitle, contentText, contentIntent)
 
-      @notification_manager.notify(HELLO_ID, notification)
+        @notification_manager.notify(HELLO_ID, notification)
 
-      Thread.with_large_stack 256 do
         begin
           client = AndroidHttpClient.newInstance('Android')
           http_context = BasicHttpContext.new
           http_context.setAttribute(ClientContext.COOKIE_STORE, org.apache.http.impl.client.BasicCookieStore.new)
 
-          get_login_form(client, http_context)
-          submit_login_form(client, http_context)
+          Log.v 'RJJK Oppmøte', 'Login...get'
+
+          authenticity_token = get_login_form(client, http_context)
+
+          Log.v 'RJJK Oppmøte', 'Login...post'
+
+          submit_login_form(client, http_context, authenticity_token)
+
+          Log.v 'RJJK Oppmøte', 'Members'
           load_members(client, http_context)
+          Log.v 'RJJK Oppmøte', 'Groups'
           load_groups(client, http_context)
+          Log.v 'RJJK Oppmøte', 'Group Schedules'
           load_group_schedules(client, http_context)
 
           context.runOnUiThread do
@@ -195,20 +223,22 @@ class Replicator
               puts "primitive client: #{context}"
             end
           end if context.respond_to? :runOnUiThread
-        rescue Exception
+        rescue Exception => e
           Log.e 'RJJK Oppmøte', "Exception getting data from server: #{$!.message}\n#{$!.backtrace.join("\n")}"
+          context.runOnUiThread do
+            context.toast "Exception syncing: #{e}"
+          end
         ensure
           client.close if client
         end
+      else
+        Log.v 'WifiDetector', 'Removing notification.'
+        context.runOnUiThread do
+          Toast.makeText(context, 'Not connected to any WIFI network', 5000).show
+          @notification_manager.cancel(HELLO_ID)
+        end if context.respond_to? :runOnUiThread
       end
-    else
-      Log.v 'WifiDetector', 'Removing notification.'
-      context.runOnUiThread do
-        Toast.makeText(context, 'Not connected to any WIFI network', 5000).show
-        @notification_manager.cancel(HELLO_ID)
-      end if context.respond_to? :runOnUiThread
     end
-  end
   end
 
 end

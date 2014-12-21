@@ -5,32 +5,67 @@
               android:background="#ffffff"
               android:orientation="vertical"
               android:gravity="center">
-  <TextView android:layout_marginTop="30dp" android:layout_width="fill_parent" android:layout_height="wrap_content"/> <!-- Spacer -->
+
+  <!-- Spacer -->
+  <TextView android:layout_width="fill_parent"
+            android:layout_height="0px"
+            android:layout_weight="1"
+          />
 
   <ImageView android:layout_width="fill_parent"
-             android:layout_height="fill_parent"
-             android:src="@drawable/rjjk_logo_320" android:scaleType="fitCenter"
-             android:layout_weight="1"
+             android:layout_height="0px"
+             android:src="@drawable/rjjk_logo_320"
+             android:scaleType="fitCenter"
+             android:layout_weight="3"
           />
-  <TextView android:layout_marginTop="30dp" android:layout_width="fill_parent" android:layout_height="wrap_content"/> <!-- Spacer -->
-  <TextView android:id="@+id/text_main"
-            android:text=" Romerike Jujutsu Klubb"
+
+  <!-- Spacer -->
+  <TextView android:layout_width="fill_parent"
+            android:layout_height="0px"
+            android:layout_weight="1"
+          />
+
+  <TextView android:text="Romerike Jujutsu Klubb"
             android:layout_width="fill_parent"
-            android:layout_height="fill_parent"
-            android:layout_weight="1" android:textColor="#5B7C7C"
-            android:gravity="center" android:textSize="30dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:textColor="#FFFFFF"
+            android:gravity="center"
+            android:textSize="36dp"
+            android:background="#44000000"
           />
-  <TextView android:layout_marginTop="30dp" android:layout_width="fill_parent" android:layout_height="wrap_content"/> <!-- Spacer -->
+
+  <!-- Spacer -->
+  <TextView android:layout_width="fill_parent"
+            android:layout_height="0px"
+            android:layout_weight="1"
+          />
+
   <ProgressBar
           android:layout_width="fill_parent"
-          android:layout_height="fill_parent"
-          android:layout_weight="1"
+          android:layout_height="0px"
+          android:layout_weight="2"
           android:gravity="center"
           />
-  <TextView android:id="@+id/text_main"
-            android:text="Starter..."
+
+  <!-- Spacer -->
+  <TextView android:layout_width="fill_parent"
+            android:layout_height="0px"
+            android:layout_weight="1"
+          />
+
+  <TextView android:text="Starter..."
             android:layout_width="fill_parent"
-            android:layout_height="fill_parent"
-            android:layout_weight="1" android:textColor="#FFFFFF"
-            android:gravity="center" android:textSize="30dp"/>
+            android:layout_height="0px"
+            android:layout_weight="2"
+            android:textColor="#000000"
+            android:gravity="center"
+            android:textSize="24dp"/>
+
+  <!-- Spacer -->
+  <TextView android:layout_width="fill_parent"
+            android:layout_height="0px"
+            android:layout_weight="1"
+          />
+
 </LinearLayout>

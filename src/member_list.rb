@@ -27,9 +27,10 @@ class MemberList
       end
 
       @members = []
-      c = db.rawQuery('SELECT id, first_name, last_name FROM members', nil)
+      c = db.rawQuery('SELECT id, first_name, last_name, rank_pos, rank_name FROM members', nil)
       while c.moveToNext
-        @members << Member.new('id' => c.getInt(0), 'first_name' => c.getString(1), 'last_name' => c.getString(2))
+        @members << Member.new('id' => c.getInt(0), 'first_name' => c.getString(1),
+            'last_name' => c.getString(2), 'rank_pos' => c.getInt(3), 'rank_name' => c.getString(4))
       end
       c.close
 
@@ -51,9 +52,9 @@ class MemberList
       db.close
     end.join
 
-    setTitle "Medlemmer: #{@group_name} #{@date.strftime('%Y-%m-%d')} #{att_total}/#{@group.members.size}"
+    setTitle "#{@group_name} #{@date.strftime('%Y-%m-%d')} #{att_total}/#{@group.members.size}"
 
-    members = @group.members.sort_by { |m| "#{m['first_name']} #{m['last_name']}" }
+    members = @group.members.sort_by { |m| [-(m.rank_pos), "#{m['first_name']} #{m['last_name']}"] }
     items = members.map { |m| "#{m['first_name']} #{m['last_name']}" }
     self.content_view = @list_view = list_view :list => items,
         :item_layout => android.R::layout::simple_list_item_multiple_choice,
@@ -68,6 +69,19 @@ class MemberList
     end
     db.close
   end
+
+  # FIXME(uwe):  Only needed for Ruboto::Activity::Reload.
+  # FIXME(uwe):  Should not be enecessary.  Fix in Ruboto!
+  def onResume
+    super
+  end
+
+  # FIXME(uwe):  Only needed for Ruboto::Activity::Reload.
+  # FIXME(uwe):  Should not be enecessary.  Fix in Ruboto!
+  def onPause
+    super
+  end
+
 
   private
 
