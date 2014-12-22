@@ -1,4 +1,8 @@
 class RjjkDatabaseHelper < Java::AndroidDatabaseSqlite::SQLiteOpenHelper
+  def initialize(context)
+    super(context, 'RJJK', nil, 1)
+  end
+
   def onCreate(db)
     java.lang.System.out.println 'create...'
     db.execSQL('CREATE TABLE members (
@@ -58,5 +62,15 @@ class RjjkDatabaseHelper < Java::AndroidDatabaseSqlite::SQLiteOpenHelper
     nil
   rescue
     java.lang.System.out.println "Exception: #{$!}"
+  end
+
+  def onUpdate(db, old_version, new_version)
+    puts "onUpdate called: #{old_version} => #{new_version}"
+    db.execSQL('DROP TABLE IF EXISTS members')
+    db.execSQL('DROP TABLE IF EXISTS groups')
+    db.execSQL('DROP TABLE IF EXISTS groups_members')
+    db.execSQL('DROP TABLE IF EXISTS group_schedules')
+    db.execSQL('DROP TABLE IF EXISTS attendances')
+    onCreate(db)
   end
 end

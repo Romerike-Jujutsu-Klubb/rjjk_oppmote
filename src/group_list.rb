@@ -17,7 +17,7 @@ class GroupList
 
   def onResume
     super
-    $db_helper ||= RjjkDatabaseHelper.new(self, 'main', nil, 1)
+    $db_helper ||= RjjkDatabaseHelper.new(self)
     puts "ListView: #{@list_view} #{@list_view.adapter.inspect}"
     update_groups
     # startService(Java::android.content.Intent.new($activity.application_context, Java::no.jujutsu.android.oppmote.WifiDetectorService.java_class))
