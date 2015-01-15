@@ -97,7 +97,7 @@ class GroupList
     groups = []
     # FIXME(uwe):  Only show open groups
     # c = db.rawQuery('SELECT name FROM groups WHERE closed_on IS NULL', nil)
-    c = db.rawQuery('SELECT name FROM groups', nil)
+    c = db.rawQuery('SELECT name FROM groups ORDER BY name', nil)
     while c.moveToNext
       groups << c.getString(0)
     end

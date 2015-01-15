@@ -8,22 +8,24 @@ java_import 'android.util.Log'
 
 class Replicator
   HELLO_ID = 1
-  SERVER = 'jujutsu.no'
+  # SERVER = 'jujutsu.no'
+  SERVER = '192.168.0.100'
 
-  import 'android.app.Notification'
-  import 'android.app.PendingIntent'
-  import 'android.content.Context'
-  import 'android.net.http.AndroidHttpClient'
-  import 'android.view.View'
-  import 'android.widget.Toast'
-  import 'org.apache.http.client.methods.HttpGet'
-  import 'org.apache.http.client.methods.HttpPost'
-  import 'org.apache.http.util.EntityUtils'
+  import android.app.Notification
+  import android.app.PendingIntent
+  import android.content.Context
+  import android.net.http.AndroidHttpClient
+  import android.view.View
+  import android.widget.Toast
+  import org.apache.http.HttpStatus
   import org.apache.http.client.entity.UrlEncodedFormEntity
+  import org.apache.http.client.methods.HttpGet
+  import org.apache.http.client.methods.HttpPost
   import org.apache.http.client.protocol.ClientContext
   import org.apache.http.message.BasicNameValuePair
-  import org.apache.http.protocol.HttpContext
   import org.apache.http.protocol.BasicHttpContext
+  import org.apache.http.protocol.HttpContext
+  import org.apache.http.util.EntityUtils
 
   def self.get_login_form(client, http_context)
     method = HttpGet.new("http://#{SERVER}/user/login")
@@ -43,8 +45,20 @@ class Replicator
     ]
     entity = UrlEncodedFormEntity.new(list)
     method.setEntity(entity)
-    response = EntityUtils.toString(client.execute(method, http_context).entity)
-    Log.v 'RJJK Oppmøte', "Got login body: #{response}"
+    response = client.execute(method, http_context)
+
+    status_code = response.status_line.status_code
+    if status_code == HttpStatus::SC_MOVED_TEMPORARILY
+      redirect_url = response.get_last_header('Location').value
+      Log.v 'RJJK Oppmøte', "Following redirect: #{redirect_url}"
+      redirect_method = HttpGet.new(redirect_url)
+      response = client.execute(redirect_method, http_context)
+    end
+
+    body = EntityUtils.toString(response.entity)
+    Log.v 'RJJK Oppmøte', "Got login body: #{body}"
+    body =~ %r{<meta content="([^"]*)" name="csrf-token" />}
+    authenticity_token = $1
   end
 
   def self.load_groups(client, http_context)
@@ -81,9 +95,14 @@ class Replicator
   def self.load_group_schedules(client, http_context)
     Log.v 'RJJK Oppmøte', 'Fetch group schedules body'
     method = HttpGet.new("http://#{SERVER}/group_schedules/yaml")
-    response = EntityUtils.toString(client.execute(method, http_context).entity)
-    Log.v 'RJJK Oppmøte', "Got group schedules body: #{response}"
-    group_schedules = YAML.load(response)
+    response = client.execute(method, http_context)
+
+    Log.v 'RJJK Oppmøte', "headers: #{response.all_headers.map { |h| [h.name, h.value] }}"
+
+    authenticity_token = response.get_first_header('X-CSRF-Token')
+    body = EntityUtils.toString(response.entity)
+    Log.v 'RJJK Oppmøte', "Got group schedules body: #{body}"
+    group_schedules = YAML.load(body)
     group_schedules.each do |gs|
       Log.v 'RJJK Oppmøte', "GroupSchedule: #{gs.inspect}"
       Thread.with_large_stack do
@@ -98,6 +117,7 @@ class Replicator
         db.close
       end.join
     end
+    authenticity_token
   end
 
   def self.load_members(client, http_context)
@@ -130,7 +150,7 @@ class Replicator
     end
   end
 
-  def self.upload_attendances(client, http_context)
+  def self.upload_attendances(client, http_context, authenticity_token)
     Thread.with_large_stack do
       db = $db_helper.getWritableDatabase
       c = db.rawQuery('SELECT group_schedule_id, member_id, year, week FROM attendances', nil)
@@ -142,7 +162,9 @@ class Replicator
         puts "Sending #{gsid}, #{mid}, #{year}, #{week}"
         method = HttpPost.new("http://#{SERVER}/attendances")
         method.setHeader('Content-Type', 'application/x-www-form-urlencoded')
+        method.setHeader('X-CSRF-Token', authenticity_token)
         list = []
+        list << BasicNameValuePair.new('authenticity_token', authenticity_token)
         list << BasicNameValuePair.new('attendance[group_schedule_id]', gsid.to_s)
         list << BasicNameValuePair.new('attendance[member_id]', mid.to_s)
         list << BasicNameValuePair.new('attendance[year]', year.to_s)
@@ -199,7 +221,8 @@ class Replicator
 
           Log.v 'RJJK Oppmøte', 'Login...post'
 
-          submit_login_form(client, http_context, authenticity_token)
+          authenticity_token = submit_login_form(client, http_context, authenticity_token)
+          Log.v 'RJJK Oppmøte', "authenticity_token: #{authenticity_token.inspect}"
 
           Log.v 'RJJK Oppmøte', 'Members'
           load_members(client, http_context)
@@ -207,12 +230,13 @@ class Replicator
           load_groups(client, http_context)
           Log.v 'RJJK Oppmøte', 'Group Schedules'
           load_group_schedules(client, http_context)
+          Log.v 'RJJK Oppmøte', "authenticity_token: #{authenticity_token.inspect}"
 
           context.runOnUiThread do
             Toast.makeText(context, 'Got new data', 5000).show
           end if context.respond_to? :runOnUiThread
 
-          upload_attendances(client, http_context)
+          upload_attendances(client, http_context, authenticity_token)
 
           context.runOnUiThread do
             Toast.makeText(context, 'Sunchronized with server', 5000).show

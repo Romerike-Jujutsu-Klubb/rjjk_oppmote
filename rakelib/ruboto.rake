@@ -84,7 +84,7 @@ PROJECT_DIR = File.expand_path('..', File.dirname(__FILE__))
 UPDATE_MARKER_FILE = File.join(PROJECT_DIR, 'bin', 'LAST_UPDATE')
 BUNDLE_JAR = File.expand_path 'libs/bundle.jar'
 BUNDLE_PATH = File.join(PROJECT_DIR, 'bin', 'bundle')
-  MANIFEST_FILE = File.expand_path 'AndroidManifest.xml'
+MANIFEST_FILE = File.expand_path 'AndroidManifest.xml'
 PROJECT_PROPS_FILE = File.expand_path 'project.properties'
 RUBOTO_CONFIG_FILE = File.expand_path 'ruboto.yml'
 GEM_FILE = File.expand_path 'Gemfile.apk'
@@ -534,14 +534,10 @@ end
 
 task :ruboto_activity => RUBOTO_ACTIVITY_FILE
 file RUBOTO_ACTIVITY_FILE => RUBY_ACTIVITY_SOURCE_FILES do |task|
-  puts 'scanning...'
   original_source = File.read(RUBOTO_ACTIVITY_FILE)
   next unless original_source =~ %r{\A(.*Generated Methods.*?\*/\n*)(.*)\B}m
   intro, generated_methods = $1, $2.scan(/(?:\s*\n*)(^\s*?public.*?^  }\n)/m).flatten
   implemented_methods = task.prerequisites.map { |f| File.read(f).scan(/(?:^\s*def\s+)([^\s(]+)/) }.flatten.sort
-
-  puts "implemented_methods: #{implemented_methods}"
-
   commented_methods = generated_methods.map do |gm|
     implemented_methods.
         any? { |im| gm.upcase.include?(" #{im.upcase.gsub('_', '')}(") } ?
@@ -559,7 +555,7 @@ file APK_FILE => APK_DEPENDENCIES do |t|
   build_apk(t, false)
 end
 
-MINIMUM_DX_HEAP_SIZE = 2048
+MINIMUM_DX_HEAP_SIZE = 3072
 task :patch_dex do
   new_dx_content = File.read(DX_FILENAME).dup
   xmx_pattern = ON_WINDOWS ? /^set defaultXmx=-Xmx(\d+)(M|m|G|g|T|t)/ : /^defaultMx="-Xmx(\d+)(M|m|G|g|T|t)"/
@@ -631,7 +627,7 @@ namespace :test do
       puts 'Running quick tests'
       install_retry_count = 0
       begin
-        timeout 120 do
+        timeout 300 do
           sh "#{ANT_CMD} instrument install"
         end
       rescue TimeoutError
@@ -659,8 +655,11 @@ file BUNDLE_JAR => [GEM_FILE, GEM_LOCK_FILE] do
   next unless File.exists? GEM_FILE
   puts "Generating #{BUNDLE_JAR}"
   require 'bundler'
-  # FIXME(uwe): Issue #547 https://github.com/ruboto/ruboto/issues/547
-  if true || Gem::Version.new(Bundler::VERSION) <= Gem::Version.new('1.6.3')
+  if false
+    # FIXME(uwe): Issue #547 https://github.com/ruboto/ruboto/issues/547
+    # Bundler.settings[:platform] = Gem::Platform::DALVIK
+    sh "bundle install --gemfile #{GEM_FILE} --path=#{BUNDLE_PATH} --platform=dalvik#{sdk_level}"
+  else
     require 'bundler/vendored_thor'
 
     # Store original RubyGems/Bundler environment
@@ -701,9 +700,6 @@ file BUNDLE_JAR => [GEM_FILE, GEM_LOCK_FILE] do
     Gem.platforms = platforms
     ENV['GEM_HOME'] = env_home
     ENV['GEM_PATH'] = env_path
-  else
-    # Bundler.settings[:platform] = Gem::Platform::DALVIK
-    sh "bundle install --gemfile #{GEM_FILE} --path=#{BUNDLE_PATH} --platform=dalvik#{sdk_level}"
   end
 
   gem_paths = Dir["#{BUNDLE_PATH}/gems"]
@@ -995,7 +991,7 @@ def install_apk
     output = nil
     install_retry_count = 0
     begin
-      timeout 120 do
+      timeout 300 do
         output = `adb install -r "#{APK_FILE}" 2>&1`
       end
     rescue Timeout::Error
@@ -1028,7 +1024,7 @@ def install_apk
   output = nil
   install_retry_count = 0
   begin
-    timeout 120 do
+    timeout 300 do
       output = `adb install "#{APK_FILE}" 2>&1`
     end
   rescue Timeout::Error
