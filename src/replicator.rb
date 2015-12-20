@@ -140,10 +140,10 @@ class Replicator
         if mcount > 0
           db.execSQL "DELETE FROM members WHERE id = #{m['id']}"
         end
-        db.execSQL "INSERT INTO members(id, first_name, last_name, male, address, payment_problem, instructor, rank_pos, rank_name) VALUES (
+        db.execSQL "INSERT INTO members(id, first_name, last_name, male, address, payment_problem, instructor, rank_pos, rank_name, active) VALUES (
         #{m['id']}, '#{m['first_name']}', '#{m['last_name'].gsub("'", "''")}', #{m['male'] == 't' ? 1 : 0},
         '#{m['address']}', #{m['payment_problem'] == 't' ? 1 : 0}, #{m['instructor'] == 't' ? 1 : 0},
-        #{m['rank_pos'] || 'NULL'}, '#{m['rank_name']}')"
+        #{m['rank_pos'] || 'NULL'}, '#{m['rank_name']}', #{m['active'] ? 1 : 0})"
         db.close
       end.join
     end

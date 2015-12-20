@@ -1,6 +1,6 @@
 class RjjkDatabaseHelper < Java::AndroidDatabaseSqlite::SQLiteOpenHelper
   def initialize(context)
-    super(context, 'RJJK', nil, 1)
+    super(context, 'RJJK', nil, 2)
   end
 
   def onCreate(db)
@@ -28,7 +28,8 @@ class RjjkDatabaseHelper < Java::AndroidDatabaseSqlite::SQLiteOpenHelper
       image_content_type varchar(32),
       kid varchar(64),
       rank_pos integer,
-      rank_name varchar(32)
+      rank_name varchar(32),
+      active boolean not null
     )')
 
     db.execSQL('CREATE TABLE groups (
@@ -64,8 +65,8 @@ class RjjkDatabaseHelper < Java::AndroidDatabaseSqlite::SQLiteOpenHelper
     java.lang.System.out.println "Exception: #{$!}"
   end
 
-  def onUpdate(db, old_version, new_version)
-    puts "onUpdate called: #{old_version} => #{new_version}"
+  def onUpgrade(db, old_version, new_version)
+    puts "onUpgrade called: #{old_version} => #{new_version}"
     db.execSQL('DROP TABLE IF EXISTS members')
     db.execSQL('DROP TABLE IF EXISTS groups')
     db.execSQL('DROP TABLE IF EXISTS groups_members')
