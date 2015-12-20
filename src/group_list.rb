@@ -5,9 +5,9 @@ class GroupList
     super
     setTitle 'Grupper'
 
-    self.content_view = linear_layout :orientation => LinearLayout::VERTICAL do
-      @list_view = list_view :list => [], :id => 42,
-          :on_item_click_listener => proc { |parent, view, position, id| show_group(view) }
+    self.content_view = linear_layout orientation: LinearLayout::VERTICAL do
+      @list_view = list_view list: [], id: 42,
+          on_item_click_listener: ->(parent, view, position, id) { show_group(view) }
     end
   rescue Object
     puts "Error in setup content: #{$!.message}"

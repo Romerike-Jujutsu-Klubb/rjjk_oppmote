@@ -22,7 +22,8 @@ public class ActivityTest extends ActivityInstrumentationTestCase2 {
     private final String filename;
     private final boolean onUiThread;
 
-    public ActivityTest(Class activityClass, String filename, Object setup, Object teardown, String name, boolean onUiThread, Object block) {
+    public ActivityTest(Class activityClass, String filename, Object setup,
+            Object teardown, String name, boolean onUiThread, Object block) {
         super(activityClass.getPackage().getName(), activityClass);
         this.filename = filename;
         this.setup = setup;

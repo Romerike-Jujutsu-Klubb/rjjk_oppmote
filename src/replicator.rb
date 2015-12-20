@@ -8,8 +8,7 @@ java_import 'android.util.Log'
 
 class Replicator
   HELLO_ID = 1
-  # SERVER = 'jujutsu.no'
-  SERVER = '192.168.0.100'
+  SERVER = org.ruboto.JRubyAdapter.debug_build? ? '192.168.0.100:3000' : 'jujutsu.no'
 
   import android.app.Notification
   import android.app.PendingIntent
@@ -30,8 +29,8 @@ class Replicator
   def self.get_login_form(client, http_context)
     method = HttpGet.new("http://#{SERVER}/user/login")
     response = EntityUtils.toString(client.execute(method, http_context).entity)
-    response =~ /<input name="authenticity_token" type="hidden" value="([^"]*)" \/>/
-    authenticity_token = $1
+    response =~ /<input name="authenticity_token" type="hidden" value="([^"]*)"\s*\/?>/
+    $1
   end
 
   def self.submit_login_form(client, http_context, authenticity_token)
